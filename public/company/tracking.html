@@ -358,7 +358,17 @@
         try {
             const res = await api.get(`/tracking/history/${employeeId}`);
             if (res.success && res.data && res.data.length > 0) {
-                const history = res.data;
+                // Filter out points with low accuracy (> 80m) to remove erratic block-cutting GPS spikes
+                const history = res.data.filter(p => p.accuracy === null || parseFloat(p.accuracy) <= 80);
+                
+                if (history.length === 0) {
+                    if (!isAutoRefresh) {
+                        showToast(`No precise movement route logged for ${employeeName} today.`, 'info');
+                        exitRouteView();
+                    }
+                    return;
+                }
+
                 const rawCoordinates = history.map(p => ({
                     lat: parseFloat(p.latitude),
                     lng: parseFloat(p.longitude)

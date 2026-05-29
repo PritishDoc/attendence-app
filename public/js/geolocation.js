@@ -15,7 +15,7 @@ const Geo = {
                     const messages = { 1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out' };
                     reject(new Error(messages[err.code] || 'Unknown geolocation error'));
                 },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000, ...options }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0, ...options }
             );
         });
     },
@@ -40,7 +40,7 @@ const Geo = {
         return navigator.geolocation.watchPosition(
             (pos) => callback({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, speed: pos.coords.speed }),
             (err) => console.error('Watch error:', err),
-            { enableHighAccuracy: true, maximumAge: 5000 }
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
     },
 

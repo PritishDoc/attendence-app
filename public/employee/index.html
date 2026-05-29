@@ -152,6 +152,28 @@
     let attendanceType = 'office';
     let todayRecord = null;
     let map, marker, watchId = null, mapInitialized = false;
+    let lastLoggedPos = null;
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Screen Wake Lock acquired');
+            }
+        } catch (err) {
+            console.warn('Wake Lock request failed:', err);
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock) {
+            wakeLock.release().then(() => {
+                wakeLock = null;
+                console.log('Screen Wake Lock released');
+            });
+        }
+    }
 
     window.initMap = function() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -169,12 +191,15 @@
         }
     };
 
-    function startTracking(initialPos) {
+    async function startTracking(initialPos) {
         if (!mapInitialized || watchId) return;
         
         document.getElementById('mapContainer').style.display = 'block';
         const posLiteral = { lat: initialPos.latitude, lng: initialPos.longitude };
         map.setCenter(posLiteral);
+        
+        // Prevent screen and background processes from sleeping
+        await requestWakeLock();
         
         if (!marker) {
             marker = new google.maps.Marker({
@@ -194,15 +219,32 @@
             marker.setPosition(posLiteral);
         }
 
+        lastLoggedPos = { latitude: initialPos.latitude, longitude: initialPos.longitude };
+
         watchId = Geo.watchPosition(async (pos) => {
+            // Discard poor accuracy points (>80m) to stop erratic coordinates bouncing
+            if (pos.accuracy > 80) {
+                console.log(`[Tracking] Discarded low-accuracy point (±${Math.round(pos.accuracy)}m)`);
+                return;
+            }
+
             const currentPos = { lat: pos.latitude, lng: pos.longitude };
             marker.setPosition(currentPos);
-            map.panTo(currentPos); // smooth transition
+            map.panTo(currentPos);
             
             document.getElementById('gpsIndicator').className = 'gps-indicator gps-active';
-            document.getElementById('gpsIndicator').innerHTML = `📍 Live Tracking (±${Math.round(pos.accuracy)}m)`;
+            document.getElementById('gpsIndicator').innerHTML = `📍 Live Tracking (±${Math.round(pos.accuracy)}m) <span style="font-size:0.8rem;color:#10b981;margin-left:6px;font-weight:600;">🔒 Awake</span>`;
 
-            // Send to backend silently
+            // Only log if they moved at least 6 meters to avoid stationary jitter
+            if (lastLoggedPos) {
+                const dist = Geo.calculateDistance(lastLoggedPos.latitude, lastLoggedPos.longitude, pos.latitude, pos.longitude);
+                if (dist < 6) {
+                    return;
+                }
+            }
+
+            lastLoggedPos = pos;
+
             try {
                 await api.post('/tracking/log', {
                     latitude: pos.latitude,
@@ -221,6 +263,8 @@
             Geo.clearWatch(watchId);
             watchId = null;
         }
+        releaseWakeLock();
+        lastLoggedPos = null;
         document.getElementById('mapContainer').style.display = 'none';
         document.getElementById('gpsIndicator').className = 'gps-indicator gps-inactive';
         document.getElementById('gpsIndicator').innerHTML = `📍 Tracking Stopped`;
