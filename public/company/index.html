@@ -129,14 +129,15 @@
             // Recent checkins
             const tbody = document.getElementById('recentCheckins');
             if (d.recent_checkins?.length) {
-                tbody.innerHTML = d.recent_checkins.map(r => `
+                window.recentCheckins = d.recent_checkins;
+                tbody.innerHTML = d.recent_checkins.map((r, idx) => `
                     <tr>
                         <td>
                             <div class="flex items-center gap-sm">
                                 <div class="avatar avatar-sm">${getInitials(r.employee_name)}</div>
                                 <div class="flex items-center gap-xs">
                                     <span class="font-medium">${r.employee_name}</span>
-                                    ${r.selfie_data ? `<button class="btn btn-ghost btn-icon btn-xs" onclick="viewSelfie('${r.selfie_data.replace(/'/g, "\\'")}', '${r.employee_name.replace(/'/g, "\\'")}')" title="View Check-In Selfie" style="padding:0; margin-left:4px; font-size:1.1rem; border:none; background:none; cursor:pointer;">📸</button>` : ''}
+                                    ${r.selfie_data ? `<button class="btn btn-ghost btn-icon btn-xs" onclick="viewRecentSelfie(${idx})" title="View Check-In Selfie" style="padding:0; margin-left:4px; font-size:1.1rem; border:none; background:none; cursor:pointer;">📸</button>` : ''}
                                 </div>
                             </div>
                         </td>
@@ -170,6 +171,12 @@
                 ]);
             }
         } catch(err) { console.error('Dashboard error:', err); }
+    }
+    function viewRecentSelfie(index) {
+        const r = window.recentCheckins[index];
+        if (r) {
+            viewSelfie(r.selfie_data, r.employee_name);
+        }
     }
     function viewSelfie(selfieData, name) {
         document.getElementById('selfieModalTitle').textContent = `${name}'s Check-in Selfie`;

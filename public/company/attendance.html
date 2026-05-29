@@ -121,14 +121,15 @@
                 document.getElementById('aLate').textContent = late;
                 document.getElementById('aField').textContent = field;
 
-                tbody.innerHTML = res.data.map(r => `
+                window.attendanceRecords = res.data;
+                tbody.innerHTML = res.data.map((r, idx) => `
                     <tr>
                         <td>
                             <div class="flex items-center gap-sm">
                                 <div class="avatar avatar-sm">${getInitials(r.employee_name)}</div>
                                 <div class="flex items-center gap-xs">
                                     <span class="font-medium">${r.employee_name}</span>
-                                    ${r.selfie_data ? `<button class="btn btn-ghost btn-icon btn-xs" onclick="viewSelfie('${r.selfie_data.replace(/'/g, "\\'")}', '${r.employee_name.replace(/'/g, "\\'")}')" title="View Check-In Selfie" style="padding:0; margin-left:4px; font-size:1.1rem; border:none; background:none; cursor:pointer;">📸</button>` : ''}
+                                    ${r.selfie_data ? `<button class="btn btn-ghost btn-icon btn-xs" onclick="viewAttendanceSelfie(${idx})" title="View Check-In Selfie" style="padding:0; margin-left:4px; font-size:1.1rem; border:none; background:none; cursor:pointer;">📸</button>` : ''}
                                 </div>
                             </div>
                         </td>
@@ -152,6 +153,13 @@
     document.getElementById('dateFilter').addEventListener('change', loadAttendance);
     document.getElementById('deptFilter').addEventListener('change', loadAttendance);
     document.getElementById('statusFilter').addEventListener('change', loadAttendance);
+
+    function viewAttendanceSelfie(index) {
+        const r = window.attendanceRecords[index];
+        if (r) {
+            viewSelfie(r.selfie_data, r.employee_name);
+        }
+    }
 
     function viewSelfie(selfieData, name) {
         document.getElementById('selfieModalTitle').textContent = `${name}'s Check-in Selfie`;

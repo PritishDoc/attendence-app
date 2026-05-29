@@ -3,9 +3,11 @@
  * Auth Controller — Login, Register, Profile
  */
 
-class AuthController {
+class AuthController
+{
 
-    public static function login(): void {
+    public static function login(): void
+    {
         $body = getRequestBody();
         $v = new Validator();
         $v->required('email', $body['email'] ?? '')->email('email', $body['email'] ?? '');
@@ -29,7 +31,7 @@ class AuthController {
             if (empty($clientDeviceUuid)) {
                 Response::error('Device signature is missing. Please log in from the Attendify Web App.', 400);
             }
-            
+
             // If they don't have a registered device yet, bind this device!
             if (empty($user['device_uuid'])) {
                 $userModel->update($user['id'], ['device_uuid' => $clientDeviceUuid]);
@@ -51,19 +53,19 @@ class AuthController {
         $userModel->updateLastLogin($user['id']);
 
         $token = JWT::generate([
-            'user_id'    => $user['id'],
+            'user_id' => $user['id'],
             'company_id' => $user['company_id'],
-            'role'       => $user['role'],
-            'email'      => $user['email']
+            'role' => $user['role'],
+            'email' => $user['email']
         ]);
 
         Response::success([
             'token' => $token,
-            'user'  => [
-                'id'         => $user['id'],
-                'name'       => $user['name'],
-                'email'      => $user['email'],
-                'role'       => $user['role'],
+            'user' => [
+                'id' => $user['id'],
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'role' => $user['role'],
                 'company_id' => $user['company_id'],
                 'department' => $user['department'],
                 'avatar_url' => $user['avatar_url']
@@ -71,7 +73,8 @@ class AuthController {
         ], 'Login successful');
     }
 
-    public static function register(): void {
+    public static function register(): void
+    {
         $body = getRequestBody();
         $v = new Validator();
         $v->required('company_name', $body['company_name'] ?? '');
@@ -108,32 +111,36 @@ class AuthController {
         }
 
         $userId = $userModel->create([
-            'company_id'    => $companyId,
-            'name'          => $body['name'],
-            'email'         => $body['email'],
+            'company_id' => $companyId,
+            'name' => $body['name'],
+            'email' => $body['email'],
             'password_hash' => password_hash($body['password'], PASSWORD_BCRYPT),
-            'role'          => ROLE_COMPANY_ADMIN,
-            'department'    => 'Management',
-            'designation'   => 'Admin'
+            'role' => ROLE_COMPANY_ADMIN,
+            'department' => 'Management',
+            'designation' => 'Admin'
         ]);
 
         $token = JWT::generate([
-            'user_id' => $userId, 'company_id' => $companyId,
-            'role' => ROLE_COMPANY_ADMIN, 'email' => $body['email']
+            'user_id' => $userId,
+            'company_id' => $companyId,
+            'role' => ROLE_COMPANY_ADMIN,
+            'email' => $body['email']
         ]);
 
         Response::success([
-            'token'      => $token,
-            'user'       => ['id' => $userId, 'name' => $body['name'], 'email' => $body['email'], 'role' => ROLE_COMPANY_ADMIN, 'company_id' => $companyId],
+            'token' => $token,
+            'user' => ['id' => $userId, 'name' => $body['name'], 'email' => $body['email'], 'role' => ROLE_COMPANY_ADMIN, 'company_id' => $companyId],
             'company_id' => $companyId
         ], 'Registration successful', 201);
     }
 
-    public static function me(): void {
+    public static function me(): void
+    {
         $auth = authenticate();
         $userModel = new User();
         $user = $userModel->findById($auth['user_id']);
-        if (!$user) Response::error('User not found', 404);
+        if (!$user)
+            Response::error('User not found', 404);
 
         $data = $user;
         if ($user['company_id']) {
