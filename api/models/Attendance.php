@@ -25,11 +25,12 @@ class Attendance {
     }
 
     public function checkin(array $data): int {
-        $stmt = $this->db->prepare("INSERT INTO attendance (employee_id, company_id, date, checkin_time, checkin_latitude, checkin_longitude, attendance_type, status) VALUES (?, ?, CURDATE(), NOW(), ?, ?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO attendance (employee_id, company_id, date, checkin_time, checkin_latitude, checkin_longitude, attendance_type, status, selfie_data) VALUES (?, ?, CURDATE(), NOW(), ?, ?, ?, ?, ?)");
         $stmt->execute([
             $data['employee_id'], $data['company_id'],
             $data['latitude'] ?? null, $data['longitude'] ?? null,
-            $data['attendance_type'] ?? 'office', $data['status'] ?? 'present'
+            $data['attendance_type'] ?? 'office', $data['status'] ?? 'present',
+            $data['selfie_data'] ?? null
         ]);
         return (int) $this->db->lastInsertId();
     }

@@ -90,4 +90,19 @@ class EmployeeController {
         $userModel->delete($id);
         Response::success(null, 'Employee deleted');
     }
+
+    public static function resetDevice(int $id): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_SUPER_ADMIN, ROLE_COMPANY_ADMIN]);
+        $userModel = new User();
+        $employee = $userModel->findById($id);
+        if (!$employee) Response::error('Employee not found', 404);
+        if ($auth['role'] === ROLE_COMPANY_ADMIN) requireCompany($auth, $employee['company_id']);
+        
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE users SET device_uuid = NULL WHERE id = ?");
+        $stmt->execute([$id]);
+        
+        Response::success(null, 'Device lock reset successfully. The employee can now log in on a new device.');
+    }
 }

@@ -120,6 +120,26 @@
     </main>
 </div>
 
+<!-- Selfie Capture Modal -->
+<div class="modal-backdrop" id="selfieModal">
+    <div class="modal" style="max-width: 380px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Selfie Verification</h3>
+            <button class="modal-close" onclick="cancelSelfie()">&times;</button>
+        </div>
+        <div style="padding: 20px; text-align: center;">
+            <p class="text-sm text-muted mb-md">Please position your face clearly in the frame</p>
+            <div style="width: 220px; height: 220px; border-radius: 50%; overflow: hidden; border: 4px solid var(--color-primary); margin: 0 auto 20px; background: #000; position: relative; box-shadow: var(--shadow-md);">
+                <video id="selfieVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                <canvas id="selfieCanvas" style="display: none;"></canvas>
+            </div>
+            <button class="btn btn-primary btn-block btn-lg" onclick="captureSelfieAndCheckin()" id="captureBtn">
+                📸 Capture & Check In
+            </button>
+        </div>
+    </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/auth.js"></script>
 <script src="../js/utils.js"></script>
@@ -227,6 +247,31 @@
         document.getElementById('typeField').style = type === 'field' ? 'background:var(--color-info-bg);color:var(--color-info);border:1px solid rgba(59,130,246,.3)' : '';
     }
 
+    let cameraStream = null;
+    let cachedPosition = null;
+
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: 400, height: 400 },
+                audio: false
+            });
+            const videoEl = document.getElementById('selfieVideo');
+            videoEl.srcObject = cameraStream;
+        } catch (err) {
+            console.error('Camera access denied or failed:', err);
+            showToast('Camera access is required for anti-scam check-in verification.', 'error');
+            throw err;
+        }
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+    }
+
     async function handleCheckin() {
         const btn = document.getElementById('checkinBtn');
         if (btn.classList.contains('done')) return;
@@ -241,15 +286,15 @@
             document.getElementById('gpsIndicator').innerHTML = `📍 GPS Active (±${Math.round(pos.accuracy)}m)`;
 
             if (!todayRecord || !todayRecord.checkin_time) {
-                // Check in
-                const res = await api.post('/attendance/checkin', { latitude: pos.latitude, longitude: pos.longitude, attendance_type: attendanceType });
-                if (res.success) {
-                    showToast(res.message, res.data.status === 'late' ? 'warning' : 'success');
-                    loadDashboard();
-                    startTracking(pos);
-                }
+                // For check-in: require selfie verification!
+                cachedPosition = pos;
+                statusEl.textContent = 'Starting front camera...';
+                await startCamera();
+                openModal('selfieModal');
+                statusEl.textContent = 'Awaiting selfie capture...';
+                btn.disabled = false;
             } else if (!todayRecord.checkout_time) {
-                // Check out
+                // Check out (direct checkout, no selfie required)
                 const res = await api.post('/attendance/checkout', { latitude: pos.latitude, longitude: pos.longitude });
                 if (res.success) {
                     showToast('Checked out! Total: ' + (res.data.total_hours || 0) + ' hours', 'success');
@@ -258,10 +303,68 @@
                 }
             }
         } catch(err) {
-            showToast(err.message || 'Error', 'error');
+            showToast(err.message || 'Error occurred during location/camera access', 'error');
             statusEl.textContent = err.message || 'Error occurred';
             btn.disabled = false;
+            stopCamera();
         }
+    }
+
+    async function captureSelfieAndCheckin() {
+        const captureBtn = document.getElementById('captureBtn');
+        setLoading(captureBtn, true);
+
+        try {
+            const videoEl = document.getElementById('selfieVideo');
+            const canvasEl = document.getElementById('selfieCanvas');
+            const context = canvasEl.getContext('2d');
+
+            // Draw current video frame onto canvas
+            canvasEl.width = videoEl.videoWidth || 300;
+            canvasEl.height = videoEl.videoHeight || 300;
+            
+            // Mirror image on canvas to match video display
+            context.translate(canvasEl.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+            context.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Get compressed Base64 JPEG data
+            const selfieData = canvasEl.toDataURL('image/jpeg', 0.85);
+
+            // Stop camera and close modal
+            stopCamera();
+            closeModal('selfieModal');
+
+            // Send check-in payload to backend
+            const res = await api.post('/attendance/checkin', { 
+                latitude: cachedPosition.latitude, 
+                longitude: cachedPosition.longitude, 
+                attendance_type: attendanceType,
+                selfie_data: selfieData 
+            });
+
+            if (res.success) {
+                showToast(res.message, res.data.status === 'late' ? 'warning' : 'success');
+                loadDashboard();
+                startTracking(cachedPosition);
+            }
+        } catch (err) {
+            showToast(err.message || 'Check-in failed', 'error');
+            const btn = document.getElementById('checkinBtn');
+            btn.disabled = false;
+            document.getElementById('checkinStatus').textContent = 'Check-in failed. Try again.';
+        } finally {
+            setLoading(captureBtn, false);
+        }
+    }
+
+    function cancelSelfie() {
+        stopCamera();
+        closeModal('selfieModal');
+        const btn = document.getElementById('checkinBtn');
+        btn.disabled = false;
+        document.getElementById('checkinStatus').textContent = 'Tap to mark your attendance';
     }
 
     function updateCheckinButton() {

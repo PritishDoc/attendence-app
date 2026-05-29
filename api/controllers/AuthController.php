@@ -23,6 +23,22 @@ class AuthController {
             Response::error('Account is deactivated. Contact your administrator.', 403);
         }
 
+        // Device Lock validation for employees (anti-scam protection)
+        if ($user['role'] === 'employee') {
+            $clientDeviceUuid = $body['device_uuid'] ?? null;
+            if (empty($clientDeviceUuid)) {
+                Response::error('Device signature is missing. Please log in from the Attendify Web App.', 400);
+            }
+            
+            // If they don't have a registered device yet, bind this device!
+            if (empty($user['device_uuid'])) {
+                $userModel->update($user['id'], ['device_uuid' => $clientDeviceUuid]);
+                $user['device_uuid'] = $clientDeviceUuid;
+            } else if ($user['device_uuid'] !== $clientDeviceUuid) {
+                Response::error('This account is locked to another mobile device. Please contact your company administrator to reset your registered device.', 403);
+            }
+        }
+
         // Check company status for non-super-admin
         if ($user['role'] !== ROLE_SUPER_ADMIN && $user['company_id']) {
             $companyModel = new Company();

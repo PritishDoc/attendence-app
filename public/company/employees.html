@@ -132,7 +132,7 @@
                         <td>${e.department || '—'}</td>
                         <td class="text-sm">${e.designation || '—'}</td>
                         <td>${statusBadge(e.status)}</td>
-                        <td><div class="flex gap-sm"><button class="btn btn-ghost btn-sm" onclick="editEmployee(${e.id})">✏️</button><button class="btn btn-ghost btn-sm" onclick="deleteEmployee(${e.id},'${e.name}')">🗑️</button></div></td>
+                        <td><div class="flex gap-sm"><button class="btn btn-ghost btn-sm" onclick="editEmployee(${e.id})">✏️</button><button class="btn btn-ghost btn-sm" onclick="resetDevice(${e.id},'${e.name}')" title="Reset Bound Device signature">🔓</button><button class="btn btn-ghost btn-sm" onclick="deleteEmployee(${e.id},'${e.name}')">🗑️</button></div></td>
                     </tr>
                 `).join('');
                 document.getElementById('paginationInfo').textContent = `Showing ${res.data.length} of ${res.pagination.total} employees`;
@@ -198,6 +198,15 @@
             showToast('Employee deleted', 'success');
             loadEmployees(currentPage);
         } catch(err) { showToast(err.message || 'Error', 'error'); }
+    }
+
+    async function resetDevice(id, name) {
+        if (!confirmAction(`Reset device lock for employee "${name}"? They will be allowed to bind a new device on their next login.`)) return;
+        try {
+            await api.post(`/employees/${id}/reset-device`);
+            showToast('Device lock reset successfully', 'success');
+            loadEmployees(currentPage);
+        } catch(err) { showToast(err.message || 'Error resetting device', 'error'); }
     }
 
     // Reset form on modal open for new employee

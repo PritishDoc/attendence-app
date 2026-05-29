@@ -91,6 +91,9 @@ try {
     elseif (preg_match('/^\/employees\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
         EmployeeController::delete((int)$m[1]);
     }
+    elseif (preg_match('/^\/employees\/(\d+)\/reset-device$/', $uri, $m) && $method === 'POST') {
+        EmployeeController::resetDevice((int)$m[1]);
+    }
 
     // ─── Attendance Routes ───
     elseif ($uri === '/attendance/checkin' && $method === 'POST') {
@@ -119,6 +122,10 @@ try {
     elseif ($uri === '/tracking/active' && $method === 'GET') {
         TrackingController::getActiveLocations();
     }
+    elseif (preg_match('/^\/tracking\/history\/(\d+)$/', $uri, $m) && $method === 'GET') {
+        TrackingController::getEmployeeHistory((int)$m[1]);
+    }
+
 
     // ─── Department Routes ───
     elseif ($uri === '/departments' && $method === 'GET') {

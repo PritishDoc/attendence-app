@@ -91,4 +91,48 @@ class TrackingController {
             Response::error('Database error while fetching active locations', 500, ['error' => $e->getMessage()]);
         }
     }
+
+    /**
+     * Get historical route locations for a specific employee and date
+     * GET /api/tracking/history/{employee_id}?date=YYYY-MM-DD
+     */
+    public static function getEmployeeHistory($employeeId) {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_COMPANY_ADMIN, ROLE_SUPER_ADMIN]);
+
+        $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+        $db = Database::getInstance()->getConnection();
+
+        try {
+            // Verify employee exists and belongs to the same company
+            $empCheck = $db->prepare("SELECT id, company_id FROM users WHERE id = ?");
+            $empCheck->execute([$employeeId]);
+            $emp = $empCheck->fetch();
+
+            if (!$emp) {
+                Response::error('Employee not found', 404);
+                return;
+            }
+
+            if ($auth['role'] !== ROLE_SUPER_ADMIN && (int)$emp['company_id'] !== (int)$auth['company_id']) {
+                Response::error('Unauthorized access to employee tracking data', 403);
+                return;
+            }
+
+            // Fetch coordinates chronologically by timestamp
+            $stmt = $db->prepare("
+                SELECT latitude, longitude, accuracy, speed, heading, timestamp 
+                FROM live_tracking 
+                WHERE employee_id = ? AND DATE(timestamp) = ? 
+                ORDER BY timestamp ASC
+            ");
+            $stmt->execute([$employeeId, $date]);
+            $history = $stmt->fetchAll();
+
+            Response::success($history, 'Route history retrieved successfully');
+        } catch (PDOException $e) {
+            Response::error('Database error while fetching route history', 500, ['error' => $e->getMessage()]);
+        }
+    }
 }
+

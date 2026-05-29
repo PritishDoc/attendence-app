@@ -49,7 +49,8 @@ const Auth = {
     },
 
     async login(email, password) {
-        const res = await api.post('/auth/login', { email, password });
+        const device_uuid = window.getDeviceFingerprint ? window.getDeviceFingerprint() : null;
+        const res = await api.post('/auth/login', { email, password, device_uuid });
         if (res.success) {
             this.setSession(res.data.token, res.data.user);
             this.redirectToDashboard();

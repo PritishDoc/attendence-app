@@ -90,6 +90,21 @@
     </main>
 </div>
 
+<!-- View Selfie Modal -->
+<div class="modal-backdrop" id="selfieModal">
+    <div class="modal" style="max-width: 360px;">
+        <div class="modal-header">
+            <h3 class="modal-title" id="selfieModalTitle">Check-In Selfie</h3>
+            <button class="modal-close" onclick="closeModal('selfieModal')">&times;</button>
+        </div>
+        <div style="padding: 20px; text-align: center;">
+            <div style="width: 260px; height: 260px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); margin: 0 auto; background: #000; box-shadow: var(--shadow-md);">
+                <img id="selfieImage" src="" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/auth.js"></script>
 <script src="../js/utils.js"></script>
@@ -116,7 +131,15 @@
             if (d.recent_checkins?.length) {
                 tbody.innerHTML = d.recent_checkins.map(r => `
                     <tr>
-                        <td><div class="flex items-center gap-sm"><div class="avatar avatar-sm">${getInitials(r.employee_name)}</div><span class="font-medium">${r.employee_name}</span></div></td>
+                        <td>
+                            <div class="flex items-center gap-sm">
+                                <div class="avatar avatar-sm">${getInitials(r.employee_name)}</div>
+                                <div class="flex items-center gap-xs">
+                                    <span class="font-medium">${r.employee_name}</span>
+                                    ${r.selfie_data ? `<button class="btn btn-ghost btn-icon btn-xs" onclick="viewSelfie('${r.selfie_data.replace(/'/g, "\\'")}', '${r.employee_name.replace(/'/g, "\\'")}')" title="View Check-In Selfie" style="padding:0; margin-left:4px; font-size:1.1rem; border:none; background:none; cursor:pointer;">📸</button>` : ''}
+                                </div>
+                            </div>
+                        </td>
                         <td>${statusBadge(r.status)}</td>
                         <td class="text-sm text-muted">${formatTime(r.checkin_time)}</td>
                     </tr>
@@ -148,6 +171,12 @@
             }
         } catch(err) { console.error('Dashboard error:', err); }
     }
+    function viewSelfie(selfieData, name) {
+        document.getElementById('selfieModalTitle').textContent = `${name}'s Check-in Selfie`;
+        document.getElementById('selfieImage').src = selfieData;
+        openModal('selfieModal');
+    }
+
     loadDashboard();
 </script>
 <script>

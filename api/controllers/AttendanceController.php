@@ -53,7 +53,8 @@ class AttendanceController {
             'latitude'    => $lat,
             'longitude'   => $lng,
             'attendance_type' => $type,
-            'status'      => $status
+            'status'      => $status,
+            'selfie_data' => $body['selfie_data'] ?? null
         ]);
 
         Response::success([

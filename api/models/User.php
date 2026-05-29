@@ -76,7 +76,7 @@ class User {
     public function update(int $id, array $data): bool {
         $fields = [];
         $params = [];
-        $allowed = ['name', 'email', 'phone', 'department', 'designation', 'employee_id_code', 'status', 'avatar_url'];
+        $allowed = ['name', 'email', 'phone', 'department', 'designation', 'employee_id_code', 'status', 'avatar_url', 'device_uuid'];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = ?";

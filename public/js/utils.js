@@ -115,6 +115,20 @@ function populateSidebarUser() {
 // Confirm dialog
 function confirmAction(message) { return confirm(message); }
 
+function getDeviceFingerprint() {
+    let fingerprint = localStorage.getItem('attendify_device_uuid');
+    if (!fingerprint) {
+        const randomArray = new Uint32Array(4);
+        window.crypto.getRandomValues(randomArray);
+        const hexParts = Array.from(randomArray).map(num => num.toString(16).padStart(8, '0'));
+        const screenSig = `${screen.width}x${screen.height}x${screen.colorDepth}`;
+        const lang = navigator.language || 'en';
+        fingerprint = `dev-${hexParts.join('-')}-${screenSig}-${lang}`;
+        localStorage.setItem('attendify_device_uuid', fingerprint);
+    }
+    return fingerprint;
+}
+
 window.showToast = showToast;
 window.formatDate = formatDate;
 window.formatTime = formatTime;
@@ -129,3 +143,4 @@ window.formatCurrency = formatCurrency;
 window.debounce = debounce;
 window.setLoading = setLoading;
 window.populateSidebarUser = populateSidebarUser;
+window.getDeviceFingerprint = getDeviceFingerprint;
