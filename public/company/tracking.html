@@ -71,6 +71,63 @@
             border-radius: 50%;
             background: var(--color-success);
         }
+        .route-info-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(6, 8, 15, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            z-index: 10;
+            width: 300px;
+            display: none;
+            color: #ffffff;
+            box-shadow: var(--shadow-lg);
+        }
+        .route-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        .route-info-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .route-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .route-stat-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+        }
+        .route-stat-label {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .route-stat-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .btn-close-route {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
@@ -113,6 +170,30 @@
                         <div class="text-center text-muted" style="padding: 20px;">No employees currently tracking</div>
                     </div>
                 </div>
+                
+                <div class="route-info-overlay" id="routeInfoOverlay">
+                    <div class="route-info-header">
+                        <div class="route-info-title" id="routeEmployeeName">Employee Route</div>
+                        <button class="btn btn-ghost btn-sm btn-icon" onclick="exitRouteView()" style="color:#ef4444; font-size:1.2rem; padding:0; width:24px; height:24px; border:none; background:none; cursor:pointer;">✕</button>
+                    </div>
+                    <div class="route-stats">
+                        <div class="route-stat-item">
+                            <div class="route-stat-label">Start Time</div>
+                            <div class="route-stat-value" id="routeStartTime">—</div>
+                        </div>
+                        <div class="route-stat-item">
+                            <div class="route-stat-label">Last Logged</div>
+                            <div class="route-stat-value" id="routeEndTime">—</div>
+                        </div>
+                        <div class="route-stat-item" style="grid-column: span 2;">
+                            <div class="route-stat-label">Distance Covered</div>
+                            <div class="route-stat-value" id="routeDistance" style="color: #6366f1; font-size: 1.1rem;">0.00 km</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-sm btn-close-route" onclick="exitRouteView()" style="width:100%; border:none; display:flex; justify-content:center; align-items:center; gap:8px;">
+                        🛑 Exit Route History
+                    </button>
+                </div>
             </div>
         </div>
     </main>
@@ -129,6 +210,12 @@
     let map;
     let markers = {};
     let infoWindow;
+
+    // Route history state
+    let selectedEmployeeId = null;
+    let activePolyline = null;
+    let startMarker = null;
+    let endMarker = null;
 
     window.initTrackingMap = function() {
         map = new google.maps.Map(document.getElementById('trackingMap'), {
@@ -152,6 +239,14 @@
                 updateMap(res.data);
                 updateList(res.data);
                 document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+                // Proactive live update if currently viewing someone's historical route
+                if (selectedEmployeeId) {
+                    const emp = res.data.find(e => e.employee_id === selectedEmployeeId);
+                    if (emp) {
+                        loadRouteHistory(selectedEmployeeId, emp.name, true);
+                    }
+                }
             }
         } catch(err) {
             console.error('Failed to fetch tracking data:', err);
@@ -195,11 +290,13 @@
                 });
 
                 marker.addListener('click', () => {
+                    const escapedName = loc.name.replace(/'/g, "\\'");
                     infoWindow.setContent(`
-                        <div style="color: black; padding: 5px;">
+                        <div style="color: black; padding: 5px; font-family: sans-serif; font-size: 13px;">
                             <strong>${loc.name}</strong><br>
                             Type: ${loc.attendance_type}<br>
-                            Checked in: ${formatTime(loc.checkin_time)}
+                            Checked in: ${formatTime(loc.checkin_time)}<br>
+                            <button class="btn btn-primary btn-xs" style="margin-top: 8px; width: 100%; display: block; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; background: #6366f1; color: white;" onclick="selectEmployee(${loc.employee_id}, '${escapedName}')">🗺️ Trace Path</button>
                         </div>
                     `);
                     infoWindow.open(map, marker);
@@ -209,9 +306,6 @@
             }
             bounds.extend(pos);
         });
-
-        // Fit map bounds if this is the first load or we want to keep everyone in view
-        // map.fitBounds(bounds);
     }
 
     function updateList(locations) {
@@ -221,16 +315,19 @@
             return;
         }
 
-        listEl.innerHTML = locations.map(loc => `
-            <div class="employee-item" onclick="focusMarker(${loc.employee_id})">
-                <div class="avatar">${getInitials(loc.name)}</div>
-                <div class="employee-info">
-                    <div class="employee-name">${loc.name}</div>
-                    <div class="employee-meta">${loc.department || 'N/A'} • ${formatTime(loc.checkin_time)}</div>
+        listEl.innerHTML = locations.map(loc => {
+            const escapedName = loc.name.replace(/'/g, "\\'");
+            return `
+                <div class="employee-item" onclick="selectEmployee(${loc.employee_id}, '${escapedName}')">
+                    <div class="avatar">${getInitials(loc.name)}</div>
+                    <div class="employee-info">
+                        <div class="employee-name">${loc.name}</div>
+                        <div class="employee-meta">${loc.department || 'N/A'} • ${formatTime(loc.checkin_time)}</div>
+                    </div>
+                    <div class="status-dot"></div>
                 </div>
-                <div class="status-dot"></div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     function focusMarker(employeeId) {
@@ -239,6 +336,190 @@
             map.setZoom(16);
             google.maps.event.trigger(markers[employeeId], 'click');
         }
+    }
+
+    async function selectEmployee(employeeId, employeeName) {
+        selectedEmployeeId = employeeId;
+        
+        // Show loading state in the card immediately
+        document.getElementById('routeEmployeeName').textContent = employeeName;
+        document.getElementById('routeStartTime').textContent = 'Loading...';
+        document.getElementById('routeEndTime').textContent = 'Loading...';
+        document.getElementById('routeDistance').textContent = 'Loading...';
+        document.getElementById('routeInfoOverlay').style.display = 'block';
+
+        // Close any open info windows
+        if (infoWindow) infoWindow.close();
+        
+        await loadRouteHistory(employeeId, employeeName, false);
+    }
+
+    async function loadRouteHistory(employeeId, employeeName, isAutoRefresh = false) {
+        try {
+            const res = await api.get(`/tracking/history/${employeeId}`);
+            if (res.success && res.data && res.data.length > 0) {
+                const history = res.data;
+                const rawCoordinates = history.map(p => ({
+                    lat: parseFloat(p.latitude),
+                    lng: parseFloat(p.longitude)
+                }));
+                
+                const pathCoordinates = filterJitter(rawCoordinates, 15); // 15 meters threshold to filter stationary noise
+
+                // Clear previous route polyline and start/end markers
+                if (activePolyline) activePolyline.setMap(null);
+                if (startMarker) startMarker.setMap(null);
+                if (endMarker) endMarker.setMap(null);
+
+                // Draw new Google Maps Polyline if we have at least 2 points
+                if (pathCoordinates.length >= 2) {
+                    activePolyline = new google.maps.Polyline({
+                        path: pathCoordinates,
+                        geodesic: true,
+                        strokeColor: '#6366f1',
+                        strokeOpacity: 0.85,
+                        strokeWeight: 5,
+                        map: map
+                    });
+                }
+
+                // Add Start Marker
+                const startPos = pathCoordinates[0];
+                startMarker = new google.maps.Marker({
+                    position: startPos,
+                    map: map,
+                    title: 'Start Location',
+                    label: {
+                        text: 'S',
+                        color: 'white',
+                        fontWeight: 'bold'
+                    },
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 14,
+                        fillColor: '#10b981', // Green for start
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 2
+                    }
+                });
+
+                // Add End Marker
+                const endPos = pathCoordinates[pathCoordinates.length - 1];
+                endMarker = new google.maps.Marker({
+                    position: endPos,
+                    map: map,
+                    title: 'End/Current Location',
+                    label: {
+                        text: 'E',
+                        color: 'white',
+                        fontWeight: 'bold'
+                    },
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 14,
+                        fillColor: '#ef4444', // Red for current/end
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 2
+                    }
+                });
+
+                // Zoom map to fit the route bounds (only zoom on manual click, not auto-refresh)
+                if (!isAutoRefresh) {
+                    const bounds = new google.maps.LatLngBounds();
+                    pathCoordinates.forEach(pos => bounds.extend(pos));
+                    map.fitBounds(bounds);
+                }
+
+                // Calculate metrics
+                const totalDist = calculateTotalDistance(pathCoordinates);
+                const startTime = formatTime(history[0].timestamp);
+                const endTime = formatTime(history[history.length - 1].timestamp);
+
+                // Render metrics card
+                document.getElementById('routeStartTime').textContent = startTime;
+                document.getElementById('routeEndTime').textContent = endTime;
+                document.getElementById('routeDistance').textContent = `${totalDist.toFixed(2)} km`;
+            } else {
+                if (!isAutoRefresh) {
+                    showToast(`No movement route logged for ${employeeName} today.`, 'info');
+                    exitRouteView();
+                }
+            }
+        } catch(err) {
+            console.error('Failed to load route history:', err);
+            if (!isAutoRefresh) {
+                showToast('Failed to load employee route history.', 'error');
+                exitRouteView();
+            }
+        }
+    }
+
+    function exitRouteView() {
+        selectedEmployeeId = null;
+        if (activePolyline) {
+            activePolyline.setMap(null);
+            activePolyline = null;
+        }
+        if (startMarker) {
+            startMarker.setMap(null);
+            startMarker = null;
+        }
+        if (endMarker) {
+            endMarker.setMap(null);
+            endMarker = null;
+        }
+        document.getElementById('routeInfoOverlay').style.display = 'none';
+        
+        // Fit view back to active employee markers if any exist
+        if (Object.keys(markers).length > 0) {
+            const bounds = new google.maps.LatLngBounds();
+            for (const id in markers) {
+                bounds.extend(markers[id].getPosition());
+            }
+            map.fitBounds(bounds);
+        } else {
+            map.setZoom(12);
+            map.setCenter({ lat: 20.5937, lng: 78.9629 });
+        }
+    }
+
+    function filterJitter(path, thresholdMeters = 15) {
+        if (path.length === 0) return [];
+        const filtered = [path[0]];
+        let lastPoint = path[0];
+        
+        for (let i = 1; i < path.length; i++) {
+            const currentPoint = path[i];
+            const dist = haversineDistance(lastPoint, currentPoint) * 1000; // in meters
+            
+            // Only keep point if moved beyond threshold or it is the very last point
+            if (dist >= thresholdMeters || i === path.length - 1) {
+                filtered.push(currentPoint);
+                lastPoint = currentPoint;
+            }
+        }
+        return filtered;
+    }
+
+    function calculateTotalDistance(path) {
+        let distance = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+            distance += haversineDistance(path[i], path[i+1]);
+        }
+        return distance;
+    }
+
+    function haversineDistance(p1, p2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+        const dLon = (p2.lng - p1.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
     }
 </script>
 </body>
