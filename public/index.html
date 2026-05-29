@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Attendify — Smart Attendance Management Platform. GPS-verified check-ins, real-time employee tracking, and powerful analytics for modern businesses.">
     <title>Attendify — Smart Attendance Management</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/icon-192.png">
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <style>
@@ -292,6 +297,16 @@
             const dashMap = { super_admin: '/admin/index.html', company_admin: '/company/index.html', employee: '/employee/index.html' };
             // Optional: uncomment to auto-redirect logged-in users
             // if (dashMap[user.role]) window.location.href = dashMap[user.role];
+        }
+    </script>
+    <script>
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered successfully!', reg.scope))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
         }
     </script>
 </body>
