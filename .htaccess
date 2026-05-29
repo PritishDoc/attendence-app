@@ -1,0 +1,23 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Bypass Hostinger default.php placeholder by prioritizing index files
+    DirectoryIndex index.html index.php
+
+    # 1. Route API requests to api/index.php
+    RewriteCond %{REQUEST_URI} ^/api/ [NC]
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+    # 2. Route root / to public/index.html
+    RewriteRule ^$ public/index.html [L]
+
+    # 3. If file exists inside public/ folder, serve it directly
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 -f
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # 4. Fallback: Route any other non-existent resource through public/ folder
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
