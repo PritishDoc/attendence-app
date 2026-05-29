@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Companies — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div>
+                <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+                <a href="companies.html" class="nav-item active"><span class="nav-icon">🏢</span> Companies</a>
+                <a href="analytics.html" class="nav-item"><span class="nav-icon">📈</span> Analytics</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">SA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Super Admin</div><div class="sidebar-user-role">Super Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Companies</div><div class="topbar-subtitle">Manage all registered companies</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card" style="margin-bottom:24px">
+                <div class="flex items-center gap-md" style="flex-wrap:wrap">
+                    <div class="search-box" style="flex:1;min-width:200px"><span class="search-icon">🔍</span><input type="text" class="form-control" id="searchInput" placeholder="Search companies..." style="padding-left:36px"></div>
+                    <select class="form-control form-select" id="statusFilter" style="width:auto"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="pending">Pending</option></select>
+                    <select class="form-control form-select" id="planFilter" style="width:auto"><option value="">All Plans</option><option value="trial">Trial</option><option value="basic">Basic</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead><tr><th>Company</th><th>Plan</th><th>Employees</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="companiesTable"><tr><td colspan="6" class="text-center text-muted" style="padding:48px">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['super_admin']);
+    populateSidebarUser();
+
+    async function loadCompanies() {
+        const search = document.getElementById('searchInput').value;
+        const status = document.getElementById('statusFilter').value;
+        const plan = document.getElementById('planFilter').value;
+        let url = '/companies?per_page=50';
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (status) url += `&status=${status}`;
+        if (plan) url += `&plan=${plan}`;
+
+        try {
+            const res = await api.get(url);
+            const tbody = document.getElementById('companiesTable');
+            if (res.data?.length) {
+                tbody.innerHTML = res.data.map(c => `
+                    <tr>
+                        <td><div class="font-medium">${c.company_name}</div><div class="text-sm text-muted">${c.email}</div></td>
+                        <td><span class="badge badge-info">${c.subscription_plan}</span></td>
+                        <td class="font-medium">${c.employee_count || 0} / ${c.max_employees}</td>
+                        <td class="text-sm">${c.subscription_expiry ? formatDate(c.subscription_expiry) : '—'}</td>
+                        <td>${statusBadge(c.status)}</td>
+                        <td><div class="flex gap-sm">
+                            ${c.status === 'pending' ? `<button class="btn btn-sm" style="background:var(--color-success-bg);color:var(--color-success)" onclick="updateStatus(${c.id},'active')">✓ Approve</button>` : ''}
+                            ${c.status === 'active' ? `<button class="btn btn-ghost btn-sm text-danger" onclick="updateStatus(${c.id},'inactive')">Deactivate</button>` : ''}
+                            ${c.status === 'inactive' ? `<button class="btn btn-ghost btn-sm text-success" onclick="updateStatus(${c.id},'active')">Activate</button>` : ''}
+                        </div></td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:48px">No companies found</td></tr>';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    async function updateStatus(id, status) {
+        try {
+            await api.patch(`/companies/${id}/status`, { status });
+            showToast(`Company ${status}`, 'success');
+            loadCompanies();
+        } catch(err) { showToast('Error', 'error'); }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', debounce(loadCompanies));
+    document.getElementById('statusFilter').addEventListener('change', loadCompanies);
+    document.getElementById('planFilter').addEventListener('change', loadCompanies);
+
+    loadCompanies();
+</script>
+</body>
+</html>

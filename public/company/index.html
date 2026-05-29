@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Dashboard — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Overview</div>
+                <a href="index.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="tracking.html" class="nav-item"><span class="nav-icon">🗺️</span> Live Tracking</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">CA</div>
+                <div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div>
+                <button class="btn btn-ghost btn-icon" onclick="Auth.logout()" title="Logout">🚪</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Dashboard</div><div class="topbar-subtitle" id="dateDisplay"></div></div>
+            </div>
+            <div class="topbar-right"><a href="employees.html" class="btn btn-primary btn-sm">+ Add Employee</a></div>
+        </div>
+
+        <div class="page-content">
+            <!-- Today's Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="card stat-card green animate-fade-in-up stagger-1"><div class="flex items-center justify-between"><div><div class="stat-label">Present Today</div><div class="stat-value" id="statPresent">—</div></div><div class="stat-icon">✅</div></div></div>
+                <div class="card stat-card red animate-fade-in-up stagger-2"><div class="flex items-center justify-between"><div><div class="stat-label">Absent</div><div class="stat-value" id="statAbsent">—</div></div><div class="stat-icon">❌</div></div></div>
+                <div class="card stat-card yellow animate-fade-in-up stagger-3"><div class="flex items-center justify-between"><div><div class="stat-label">Late Arrivals</div><div class="stat-value" id="statLate">—</div></div><div class="stat-icon">⏰</div></div></div>
+                <div class="card stat-card blue animate-fade-in-up stagger-4"><div class="flex items-center justify-between"><div><div class="stat-label">Total Employees</div><div class="stat-value" id="statTotal">—</div></div><div class="stat-icon">👥</div></div></div>
+            </div>
+
+            <div class="grid grid-2" style="margin-top:24px">
+                <!-- Weekly Trend Chart -->
+                <div class="card chart-card animate-fade-in-up" style="animation-delay:.3s;opacity:0">
+                    <div class="card-header"><div class="card-title">Weekly Attendance Trend</div></div>
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+
+                <!-- Recent Check-ins -->
+                <div class="card animate-fade-in-up" style="animation-delay:.4s;opacity:0">
+                    <div class="card-header"><div class="card-title">Today's Check-ins</div><a href="attendance.html" class="btn btn-ghost btn-sm">View All →</a></div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead><tr><th>Employee</th><th>Status</th><th>Time</th></tr></thead>
+                            <tbody id="recentCheckins"><tr><td colspan="3" class="text-center text-muted" style="padding:32px">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Departments -->
+            <div class="card animate-fade-in-up" style="margin-top:24px;animation-delay:.5s;opacity:0">
+                <div class="card-header"><div class="card-title">Departments</div><a href="departments.html" class="btn btn-ghost btn-sm">Manage →</a></div>
+                <div class="grid grid-4" id="departmentGrid" style="gap:12px"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/charts.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+    document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    async function loadDashboard() {
+        try {
+            const res = await api.get('/dashboard/company');
+            if (!res.success) return;
+            const d = res.data;
+
+            // Stats
+            document.getElementById('statPresent').textContent = d.today?.present || 0;
+            document.getElementById('statAbsent').textContent = d.today?.absent || 0;
+            document.getElementById('statLate').textContent = d.today?.late || 0;
+            document.getElementById('statTotal').textContent = d.employee_count || 0;
+
+            // Recent checkins
+            const tbody = document.getElementById('recentCheckins');
+            if (d.recent_checkins?.length) {
+                tbody.innerHTML = d.recent_checkins.map(r => `
+                    <tr>
+                        <td><div class="flex items-center gap-sm"><div class="avatar avatar-sm">${getInitials(r.employee_name)}</div><span class="font-medium">${r.employee_name}</span></div></td>
+                        <td>${statusBadge(r.status)}</td>
+                        <td class="text-sm text-muted">${formatTime(r.checkin_time)}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding:32px">No check-ins yet today</td></tr>';
+            }
+
+            // Departments
+            const deptGrid = document.getElementById('departmentGrid');
+            if (d.departments?.length) {
+                deptGrid.innerHTML = d.departments.map(dept => `
+                    <div class="card" style="padding:16px;text-align:center">
+                        <div class="font-semibold">${dept.name}</div>
+                        <div class="stat-value" style="font-size:1.5rem;margin:4px 0">${dept.employee_count}</div>
+                        <div class="text-sm text-muted">employees</div>
+                    </div>
+                `).join('');
+            }
+
+            // Weekly chart
+            if (d.weekly_trend?.length) {
+                const chart = new MiniChart('weeklyChart');
+                const labels = d.weekly_trend.map(t => { const d2 = new Date(t.date); return d2.toLocaleDateString('en-IN', {weekday:'short'}); });
+                chart.drawBar(labels, [
+                    { data: d.weekly_trend.map(t => parseInt(t.present) || 0) },
+                    { data: d.weekly_trend.map(t => parseInt(t.late) || 0) }
+                ]);
+            }
+        } catch(err) { console.error('Dashboard error:', err); }
+    }
+    loadDashboard();
+</script>
+</body>
+</html>

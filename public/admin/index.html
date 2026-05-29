@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Dashboard — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">⏱ <span>Attendify</span></div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Overview</div>
+                <a href="index.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+                <a href="companies.html" class="nav-item"><span class="nav-icon">🏢</span> Companies</a>
+                <a href="analytics.html" class="nav-item"><span class="nav-icon">📈</span> Analytics</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <a href="#" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">SA</div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">Super Admin</div>
+                    <div class="sidebar-user-role">Super Admin</div>
+                </div>
+                <button class="btn btn-ghost btn-icon" onclick="Auth.logout()" title="Logout">🚪</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Dashboard</div><div class="topbar-subtitle">Welcome back, Super Admin</div></div>
+            </div>
+            <div class="topbar-right">
+                <span class="text-sm text-muted" id="currentTime"></span>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="card stat-card blue animate-fade-in-up stagger-1"><div class="flex items-center justify-between"><div><div class="stat-label">Total Companies</div><div class="stat-value" id="totalCompanies">—</div></div><div class="stat-icon">🏢</div></div></div>
+                <div class="card stat-card green animate-fade-in-up stagger-2"><div class="flex items-center justify-between"><div><div class="stat-label">Active Companies</div><div class="stat-value" id="activeCompanies">—</div></div><div class="stat-icon">✅</div></div></div>
+                <div class="card stat-card purple animate-fade-in-up stagger-3"><div class="flex items-center justify-between"><div><div class="stat-label">Total Employees</div><div class="stat-value" id="totalEmployees">—</div></div><div class="stat-icon">👥</div></div></div>
+                <div class="card stat-card yellow animate-fade-in-up stagger-4"><div class="flex items-center justify-between"><div><div class="stat-label">Revenue</div><div class="stat-value" id="totalRevenue">—</div></div><div class="stat-icon">💰</div></div></div>
+            </div>
+
+            <div class="grid grid-2" style="margin-top:24px">
+                <!-- Recent Companies -->
+                <div class="card animate-fade-in-up" style="animation-delay:.3s;opacity:0">
+                    <div class="card-header"><div class="card-title">Recent Companies</div><a href="companies.html" class="btn btn-ghost btn-sm">View All →</a></div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead><tr><th>Company</th><th>Plan</th><th>Status</th></tr></thead>
+                            <tbody id="recentCompanies"><tr><td colspan="3" class="text-center text-muted" style="padding:32px">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="card animate-fade-in-up" style="animation-delay:.4s;opacity:0">
+                    <div class="card-header"><div class="card-title">Platform Overview</div></div>
+                    <div style="padding:16px 0">
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)">
+                            <span class="text-muted">Pending Approvals</span>
+                            <span class="font-semibold" id="pendingCompanies">—</span>
+                        </div>
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)">
+                            <span class="text-muted">Active Plans</span>
+                            <span class="badge badge-success">Trial Active</span>
+                        </div>
+                        <div class="flex justify-between items-center" style="padding:12px 0">
+                            <span class="text-muted">System Status</span>
+                            <span class="badge badge-success">All Systems Go</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['super_admin']);
+    populateSidebarUser();
+    document.getElementById('currentTime').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    async function loadDashboard() {
+        try {
+            const res = await api.get('/dashboard/super-admin');
+            if (res.success) {
+                const d = res.data;
+                document.getElementById('totalCompanies').textContent = d.total_companies;
+                document.getElementById('activeCompanies').textContent = d.active_companies;
+                document.getElementById('totalEmployees').textContent = d.total_employees;
+                document.getElementById('totalRevenue').textContent = formatCurrency(d.total_revenue);
+                document.getElementById('pendingCompanies').textContent = d.pending_companies;
+
+                const tbody = document.getElementById('recentCompanies');
+                if (d.recent_companies && d.recent_companies.length) {
+                    tbody.innerHTML = d.recent_companies.map(c => `
+                        <tr>
+                            <td><div class="font-medium">${c.company_name}</div><div class="text-sm text-muted">${c.email}</div></td>
+                            <td><span class="badge badge-info">${c.subscription_plan}</span></td>
+                            <td>${statusBadge(c.status)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding:32px">No companies yet</td></tr>';
+                }
+            }
+        } catch(err) {
+            console.error('Dashboard load error:', err);
+        }
+    }
+    loadDashboard();
+</script>
+</body>
+</html>

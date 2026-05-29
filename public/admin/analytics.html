@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div>
+                <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+                <a href="companies.html" class="nav-item"><span class="nav-icon">🏢</span> Companies</a>
+                <a href="analytics.html" class="nav-item active"><span class="nav-icon">📈</span> Analytics</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">SA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Super Admin</div><div class="sidebar-user-role">Super Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Analytics</div><div class="topbar-subtitle">Platform-wide insights</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="grid grid-2">
+                <div class="card animate-fade-in-up">
+                    <div class="card-header"><div class="card-title">Companies by Plan</div></div>
+                    <canvas id="planChart"></canvas>
+                </div>
+                <div class="card animate-fade-in-up stagger-2">
+                    <div class="card-header"><div class="card-title">Platform Statistics</div></div>
+                    <div style="padding:16px 0" id="platformStats">
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Total Companies</span><span class="font-semibold" id="pTotal">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Active Companies</span><span class="font-semibold text-success" id="pActive">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Pending Approval</span><span class="font-semibold text-warning" id="pPending">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Total Employees</span><span class="font-semibold" id="pEmployees">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:12px 0"><span class="text-muted">Total Revenue</span><span class="font-semibold text-success" id="pRevenue">—</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/charts.js"></script>
+<script>
+    Auth.requireRole(['super_admin']);
+    populateSidebarUser();
+
+    async function loadAnalytics() {
+        try {
+            const res = await api.get('/dashboard/super-admin');
+            if (res.success) {
+                const d = res.data;
+                document.getElementById('pTotal').textContent = d.total_companies;
+                document.getElementById('pActive').textContent = d.active_companies;
+                document.getElementById('pPending').textContent = d.pending_companies;
+                document.getElementById('pEmployees').textContent = d.total_employees;
+                document.getElementById('pRevenue').textContent = formatCurrency(d.total_revenue);
+
+                // Plan chart
+                const chart = new MiniChart('planChart');
+                chart.drawDonut(
+                    [d.active_companies, d.pending_companies, d.total_companies - d.active_companies - d.pending_companies],
+                    ['Active', 'Pending', 'Inactive']
+                );
+            }
+        } catch(err) { console.error(err); }
+    }
+    loadAnalytics();
+</script>
+</body>
+</html>

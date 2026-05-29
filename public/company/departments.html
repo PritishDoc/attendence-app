@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item active"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Departments</div><div class="topbar-subtitle">Manage your departments</div></div>
+            </div>
+            <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="openModal('deptModal');document.getElementById('deptForm').reset();document.getElementById('deptEditId').value=''">+ Add Department</button></div>
+        </div>
+
+        <div class="page-content">
+            <div class="grid grid-3" id="deptGrid"><div class="card text-center" style="padding:48px"><span class="text-muted">Loading...</span></div></div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-backdrop" id="deptModal">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header"><h3 class="modal-title">Add Department</h3><button class="modal-close" onclick="closeModal('deptModal')">&times;</button></div>
+        <form id="deptForm">
+            <input type="hidden" id="deptEditId">
+            <div class="form-group"><label class="form-label">Department Name *</label><input type="text" id="deptName" class="form-control" required></div>
+            <div class="form-group"><label class="form-label">Description</label><textarea id="deptDesc" class="form-control" rows="3"></textarea></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('deptModal')">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    async function loadDepts() {
+        try {
+            const res = await api.get('/departments');
+            const grid = document.getElementById('deptGrid');
+            if (res.success && res.data?.length) {
+                grid.innerHTML = res.data.map(d => `
+                    <div class="card" style="text-align:center;padding:24px">
+                        <div style="font-size:2rem;margin-bottom:8px">🏗️</div>
+                        <h4>${d.name}</h4>
+                        <div class="stat-value" style="font-size:2rem;margin:8px 0">${d.employee_count}</div>
+                        <div class="text-sm text-muted mb-md">employees</div>
+                        ${d.description ? `<p class="text-sm text-muted" style="margin-bottom:12px">${d.description}</p>` : ''}
+                        <div class="flex gap-sm justify-center">
+                            <button class="btn btn-ghost btn-sm" onclick="editDept(${d.id},'${d.name}','${d.description||''}')">✏️ Edit</button>
+                            <button class="btn btn-ghost btn-sm text-danger" onclick="deleteDept(${d.id},'${d.name}')">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                grid.innerHTML = '<div class="card text-center" style="padding:48px;grid-column:1/-1"><div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No departments yet</div><div class="empty-text">Create your first department to organize employees</div></div></div>';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    document.getElementById('deptForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const id = document.getElementById('deptEditId').value;
+        const data = { name: document.getElementById('deptName').value, description: document.getElementById('deptDesc').value };
+        try {
+            if (id) { await api.put(`/departments/${id}`, data); showToast('Updated', 'success'); }
+            else { await api.post('/departments', data); showToast('Created', 'success'); }
+            closeModal('deptModal');
+            loadDepts();
+        } catch(err) { showToast(err.message || 'Error', 'error'); }
+    });
+
+    function editDept(id, name, desc) {
+        document.getElementById('deptEditId').value = id;
+        document.getElementById('deptName').value = name;
+        document.getElementById('deptDesc').value = desc;
+        openModal('deptModal');
+    }
+
+    async function deleteDept(id, name) {
+        if (!confirmAction(`Delete department "${name}"?`)) return;
+        try { await api.delete(`/departments/${id}`); showToast('Deleted', 'success'); loadDepts(); } catch(err) { showToast('Error', 'error'); }
+    }
+
+    loadDepts();
+</script>
+</body>
+</html>

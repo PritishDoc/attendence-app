@@ -1,0 +1,80 @@
+/* Attendify — Design System (main.css) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg-primary: #06080f; --bg-secondary: #0c1120; --bg-tertiary: #111827;
+    --bg-card: rgba(17,24,39,0.7); --bg-card-hover: rgba(23,33,54,0.85);
+    --bg-glass: rgba(255,255,255,0.03); --surface-1: #1a2235; --surface-2: #1e293b; --surface-3: #243044;
+    --accent-primary: #3b82f6; --accent-secondary: #8b5cf6;
+    --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #d946ef 100%);
+    --accent-gradient-subtle: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15));
+    --text-primary: #f1f5f9; --text-secondary: #94a3b8; --text-tertiary: #64748b; --text-accent: #60a5fa;
+    --color-success: #10b981; --color-success-bg: rgba(16,185,129,0.12);
+    --color-warning: #f59e0b; --color-warning-bg: rgba(245,158,11,0.12);
+    --color-danger: #ef4444; --color-danger-bg: rgba(239,68,68,0.12);
+    --color-info: #3b82f6; --color-info-bg: rgba(59,130,246,0.12);
+    --border-color: rgba(255,255,255,0.06); --border-color-hover: rgba(255,255,255,0.12);
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-full: 9999px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3); --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.5); --shadow-xl: 0 16px 48px rgba(0,0,0,0.6);
+    --font-body: 'Inter', -apple-system, sans-serif; --font-heading: 'Outfit', sans-serif;
+    --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px; --space-3xl: 64px;
+    --transition-fast: 150ms ease; --transition-base: 250ms ease; --transition-slow: 400ms ease;
+    --z-dropdown: 100; --z-sidebar: 200; --z-modal-backdrop: 300; --z-modal: 400; --z-toast: 500;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-body); background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); font-weight: 700; line-height: 1.2; }
+h1 { font-size: 2.75rem; letter-spacing: -0.03em; }
+h2 { font-size: 2rem; letter-spacing: -0.02em; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+a { color: var(--text-accent); text-decoration: none; transition: color var(--transition-fast); }
+a:hover { color: var(--accent-primary); }
+img { max-width: 100%; height: auto; }
+
+.container { width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 var(--space-lg); }
+.grid { display: grid; gap: var(--space-lg); }
+.grid-2 { grid-template-columns: repeat(2,1fr); }
+.grid-3 { grid-template-columns: repeat(3,1fr); }
+.grid-4 { grid-template-columns: repeat(4,1fr); }
+.flex { display: flex; } .flex-col { flex-direction: column; } .items-center { align-items: center; }
+.justify-center { justify-content: center; } .justify-between { justify-content: space-between; }
+.gap-sm { gap: var(--space-sm); } .gap-md { gap: var(--space-md); } .gap-lg { gap: var(--space-lg); }
+.text-center { text-align: center; } .text-muted { color: var(--text-secondary); }
+.text-accent { color: var(--text-accent); } .text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); } .text-danger { color: var(--color-danger); }
+.text-sm { font-size: 0.875rem; } .text-lg { font-size: 1.125rem; }
+.font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .font-bold { font-weight: 700; }
+.mt-sm { margin-top: var(--space-sm); } .mt-md { margin-top: var(--space-md); } .mt-lg { margin-top: var(--space-lg); }
+.mt-xl { margin-top: var(--space-xl); } .mb-md { margin-bottom: var(--space-md); } .mb-lg { margin-bottom: var(--space-lg); }
+.p-md { padding: var(--space-md); } .p-lg { padding: var(--space-lg); } .p-xl { padding: var(--space-xl); }
+
+.gradient-text { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+.bg-orbs { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; overflow: hidden; }
+.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15; animation: orbFloat 20s ease-in-out infinite; }
+.bg-orbs .orb-1 { width: 500px; height: 500px; background: var(--accent-primary); top: -10%; right: -5%; }
+.bg-orbs .orb-2 { width: 400px; height: 400px; background: var(--accent-secondary); bottom: -10%; left: -5%; animation-delay: -7s; }
+.bg-orbs .orb-3 { width: 300px; height: 300px; background: #d946ef; top: 50%; left: 50%; animation-delay: -14s; }
+
+@keyframes orbFloat { 0%,100%{transform:translate(0,0) scale(1)} 25%{transform:translate(30px,-50px) scale(1.05)} 50%{transform:translate(-20px,20px) scale(0.95)} 75%{transform:translate(40px,30px) scale(1.02)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideInLeft { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.animate-fade-in { animation: fadeIn 0.5s ease forwards; }
+.animate-fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+.stagger-1{animation-delay:.1s;opacity:0} .stagger-2{animation-delay:.2s;opacity:0} .stagger-3{animation-delay:.3s;opacity:0} .stagger-4{animation-delay:.4s;opacity:0}
+
+::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:var(--radius-full)}
+::selection{background:rgba(59,130,246,0.3);color:var(--text-primary)}
+
+@media(max-width:1024px){.grid-4{grid-template-columns:repeat(2,1fr)} h1{font-size:2.25rem}}
+@media(max-width:768px){.grid-4,.grid-3,.grid-2{grid-template-columns:1fr} .container{padding:0 var(--space-md)} h1{font-size:1.875rem} .hide-mobile{display:none!important}}
+@media(max-width:480px){html{font-size:14px}}

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .checkin-section{text-align:center;padding:40px 20px}
+        .checkin-btn{width:180px;height:180px;border-radius:50%;font-size:1.2rem;font-weight:700;border:none;cursor:pointer;transition:all .3s ease;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
+        .checkin-btn.check-in{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 0 40px rgba(16,185,129,.3)}
+        .checkin-btn.check-in:hover{box-shadow:0 0 60px rgba(16,185,129,.5);transform:scale(1.05)}
+        .checkin-btn.check-out{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 0 40px rgba(239,68,68,.3)}
+        .checkin-btn.check-out:hover{box-shadow:0 0 60px rgba(239,68,68,.5);transform:scale(1.05)}
+        .checkin-btn.done{background:var(--surface-2);color:var(--text-secondary);cursor:default;box-shadow:none}
+        .checkin-btn .btn-icon-large{font-size:2.5rem}
+        .checkin-status{margin-top:20px;font-size:.95rem;color:var(--text-secondary)}
+        .gps-indicator{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius-full);font-size:.8rem;font-weight:500;margin-top:12px}
+        .gps-active{background:var(--color-success-bg);color:var(--color-success)}
+        .gps-inactive{background:var(--color-danger-bg);color:var(--color-danger)}
+        .time-display{font-size:3rem;font-weight:800;font-family:var(--font-heading);margin-bottom:8px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center}
+        .week-day{padding:12px 8px;border-radius:var(--radius-md);background:var(--surface-1);font-size:.8rem}
+        .week-day .day-label{color:var(--text-tertiary);margin-bottom:4px;font-weight:600}
+        .week-day .day-status{font-size:1.2rem}
+        .week-day.present{border:1px solid rgba(16,185,129,.3)}
+        .week-day.late{border:1px solid rgba(245,158,11,.3)}
+        .week-day.absent{border:1px solid rgba(239,68,68,.3)}
+        .week-day.today{background:var(--accent-gradient-subtle);border:1px solid rgba(59,130,246,.3)}
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Menu</div>
+                <a href="index.html" class="nav-item active"><span class="nav-icon">🏠</span> Dashboard</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> My Attendance</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">EM</div><div class="sidebar-user-info"><div class="sidebar-user-name">Employee</div><div class="sidebar-user-role">Employee</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title" id="greeting">Good Morning!</div><div class="topbar-subtitle" id="dateDisplay"></div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Time & Check-in -->
+            <div class="card animate-fade-in-up" style="margin-bottom:24px">
+                <div class="checkin-section">
+                    <div class="time-display" id="liveTime">00:00:00</div>
+                    <div class="text-muted mb-lg" id="dateText"></div>
+
+                    <button class="checkin-btn check-in" id="checkinBtn" onclick="handleCheckin()">
+                        <span class="btn-icon-large">📍</span>
+                        <span>Check In</span>
+                    </button>
+
+                    <div class="checkin-status" id="checkinStatus">Tap the button to mark your attendance</div>
+                    <div class="gps-indicator gps-inactive" id="gpsIndicator">📍 GPS Inactive</div>
+
+                    <!-- Map Container -->
+                    <div id="mapContainer" style="display:none; margin-top: 24px; border-radius: var(--radius-md); overflow: hidden; height: 300px; border: 1px solid var(--border-color); box-shadow: var(--shadow-md);">
+                        <div id="map" style="width: 100%; height: 100%;"></div>
+                    </div>
+
+                    <!-- Type selector -->
+                    <div style="margin-top:20px" id="typeSelector">
+                        <div class="flex gap-sm justify-center">
+                            <button class="btn btn-sm" id="typeOffice" onclick="setType('office')" style="background:var(--color-info-bg);color:var(--color-info);border:1px solid rgba(59,130,246,.3)">🏢 Office</button>
+                            <button class="btn btn-sm btn-ghost" id="typeField" onclick="setType('field')">🗺️ Field</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-2" style="margin-bottom:24px">
+                <!-- Today's info -->
+                <div class="card animate-fade-in-up stagger-1">
+                    <div class="card-header"><div class="card-title">Today's Record</div></div>
+                    <div id="todayInfo" style="padding:8px 0">
+                        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Check-in</span><span class="font-semibold" id="todayCheckin">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Check-out</span><span class="font-semibold" id="todayCheckout">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Hours</span><span class="font-semibold" id="todayHours">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:8px 0"><span class="text-muted">Status</span><span id="todayStatus">—</span></div>
+                    </div>
+                </div>
+
+                <!-- Month stats -->
+                <div class="card animate-fade-in-up stagger-2">
+                    <div class="card-header"><div class="card-title">This Month</div></div>
+                    <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:0">
+                        <div style="text-align:center;padding:12px;background:var(--color-success-bg);border-radius:var(--radius-md)"><div style="font-size:1.5rem;font-weight:800;color:var(--color-success)" id="monthPresent">0</div><div class="text-sm text-muted">Present</div></div>
+                        <div style="text-align:center;padding:12px;background:var(--color-warning-bg);border-radius:var(--radius-md)"><div style="font-size:1.5rem;font-weight:800;color:var(--color-warning)" id="monthLate">0</div><div class="text-sm text-muted">Late</div></div>
+                        <div style="text-align:center;padding:12px;background:var(--color-danger-bg);border-radius:var(--radius-md)"><div style="font-size:1.5rem;font-weight:800;color:var(--color-danger)" id="monthAbsent">0</div><div class="text-sm text-muted">Absent</div></div>
+                        <div style="text-align:center;padding:12px;background:var(--color-info-bg);border-radius:var(--radius-md)"><div style="font-size:1.5rem;font-weight:800;color:var(--color-info)" id="monthAvgHours">0</div><div class="text-sm text-muted">Avg Hours</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- This week -->
+            <div class="card animate-fade-in-up stagger-3">
+                <div class="card-header"><div class="card-title">This Week</div><a href="attendance.html" class="btn btn-ghost btn-sm">Full History →</a></div>
+                <div class="week-grid" id="weekGrid"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/geolocation.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAP44kKw0Vf9ZHljyrsUhfM8GA48RlSj-k&callback=initMap" async defer></script>
+<script>
+    Auth.requireRole(['employee']);
+    populateSidebarUser();
+
+    let attendanceType = 'office';
+    let todayRecord = null;
+    let map, marker, watchId = null, mapInitialized = false;
+
+    window.initMap = function() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 16,
+            center: { lat: 20.5937, lng: 78.9629 }, // Default India
+            disableDefaultUI: true,
+            zoomControl: true,
+            mapId: 'attendance_map' // Ensure advanced markers can work if needed
+        });
+        mapInitialized = true;
+        
+        // If checked in but tracking not started (e.g. page refresh)
+        if (todayRecord && todayRecord.checkin_time && !todayRecord.checkout_time) {
+            Geo.getCurrentPosition().then(pos => startTracking(pos)).catch(e => console.error(e));
+        }
+    };
+
+    function startTracking(initialPos) {
+        if (!mapInitialized || watchId) return;
+        
+        document.getElementById('mapContainer').style.display = 'block';
+        const posLiteral = { lat: initialPos.latitude, lng: initialPos.longitude };
+        map.setCenter(posLiteral);
+        
+        if (!marker) {
+            marker = new google.maps.Marker({
+                position: posLiteral,
+                map: map,
+                title: 'You are here',
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: '#3b82f6',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2
+                }
+            });
+        } else {
+            marker.setPosition(posLiteral);
+        }
+
+        watchId = Geo.watchPosition(async (pos) => {
+            const currentPos = { lat: pos.latitude, lng: pos.longitude };
+            marker.setPosition(currentPos);
+            map.panTo(currentPos); // smooth transition
+            
+            document.getElementById('gpsIndicator').className = 'gps-indicator gps-active';
+            document.getElementById('gpsIndicator').innerHTML = `📍 Live Tracking (±${Math.round(pos.accuracy)}m)`;
+
+            // Send to backend silently
+            try {
+                await api.post('/tracking/log', {
+                    latitude: pos.latitude,
+                    longitude: pos.longitude,
+                    accuracy: pos.accuracy,
+                    speed: pos.speed
+                });
+            } catch (err) {
+                console.error("Live tracking failed to sync:", err);
+            }
+        });
+    }
+
+    function stopTracking() {
+        if (watchId) {
+            Geo.clearWatch(watchId);
+            watchId = null;
+        }
+        document.getElementById('mapContainer').style.display = 'none';
+        document.getElementById('gpsIndicator').className = 'gps-indicator gps-inactive';
+        document.getElementById('gpsIndicator').innerHTML = `📍 Tracking Stopped`;
+    }
+
+    // Greeting
+    const hour = new Date().getHours();
+    document.getElementById('greeting').textContent = hour < 12 ? 'Good Morning! ☀️' : hour < 17 ? 'Good Afternoon! 🌤️' : 'Good Evening! 🌙';
+    document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+    document.getElementById('dateText').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+    // Live clock
+    function updateClock() {
+        document.getElementById('liveTime').textContent = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: true});
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    function setType(type) {
+        attendanceType = type;
+        document.getElementById('typeOffice').className = type === 'office' ? 'btn btn-sm' : 'btn btn-sm btn-ghost';
+        document.getElementById('typeOffice').style = type === 'office' ? 'background:var(--color-info-bg);color:var(--color-info);border:1px solid rgba(59,130,246,.3)' : '';
+        document.getElementById('typeField').className = type === 'field' ? 'btn btn-sm' : 'btn btn-sm btn-ghost';
+        document.getElementById('typeField').style = type === 'field' ? 'background:var(--color-info-bg);color:var(--color-info);border:1px solid rgba(59,130,246,.3)' : '';
+    }
+
+    async function handleCheckin() {
+        const btn = document.getElementById('checkinBtn');
+        if (btn.classList.contains('done')) return;
+
+        btn.disabled = true;
+        const statusEl = document.getElementById('checkinStatus');
+        statusEl.textContent = 'Getting your location...';
+
+        try {
+            const pos = await Geo.getCurrentPosition();
+            document.getElementById('gpsIndicator').className = 'gps-indicator gps-active';
+            document.getElementById('gpsIndicator').innerHTML = `📍 GPS Active (±${Math.round(pos.accuracy)}m)`;
+
+            if (!todayRecord || !todayRecord.checkin_time) {
+                // Check in
+                const res = await api.post('/attendance/checkin', { latitude: pos.latitude, longitude: pos.longitude, attendance_type: attendanceType });
+                if (res.success) {
+                    showToast(res.message, res.data.status === 'late' ? 'warning' : 'success');
+                    loadDashboard();
+                    startTracking(pos);
+                }
+            } else if (!todayRecord.checkout_time) {
+                // Check out
+                const res = await api.post('/attendance/checkout', { latitude: pos.latitude, longitude: pos.longitude });
+                if (res.success) {
+                    showToast('Checked out! Total: ' + (res.data.total_hours || 0) + ' hours', 'success');
+                    loadDashboard();
+                    stopTracking();
+                }
+            }
+        } catch(err) {
+            showToast(err.message || 'Error', 'error');
+            statusEl.textContent = err.message || 'Error occurred';
+            btn.disabled = false;
+        }
+    }
+
+    function updateCheckinButton() {
+        const btn = document.getElementById('checkinBtn');
+        const statusEl = document.getElementById('checkinStatus');
+        const typeSelector = document.getElementById('typeSelector');
+
+        if (!todayRecord || !todayRecord.checkin_time) {
+            btn.className = 'checkin-btn check-in';
+            btn.innerHTML = '<span class="btn-icon-large">📍</span><span>Check In</span>';
+            statusEl.textContent = 'Tap to mark your attendance';
+            typeSelector.style.display = 'block';
+        } else if (!todayRecord.checkout_time) {
+            btn.className = 'checkin-btn check-out';
+            btn.innerHTML = '<span class="btn-icon-large">🏁</span><span>Check Out</span>';
+            statusEl.textContent = `Checked in at ${formatTime(todayRecord.checkin_time)}`;
+            typeSelector.style.display = 'none';
+            if (mapInitialized && !watchId) {
+                Geo.getCurrentPosition().then(pos => startTracking(pos)).catch(e => console.error(e));
+            }
+        } else {
+            btn.className = 'checkin-btn done';
+            btn.innerHTML = '<span class="btn-icon-large">✅</span><span>Done</span>';
+            statusEl.textContent = `Completed — ${todayRecord.total_hours || 0} hours`;
+            typeSelector.style.display = 'none';
+        }
+        btn.disabled = false;
+    }
+
+    async function loadDashboard() {
+        try {
+            const res = await api.get('/dashboard/employee');
+            if (!res.success) return;
+            const d = res.data;
+
+            todayRecord = d.today;
+            updateCheckinButton();
+
+            // Today info
+            document.getElementById('todayCheckin').textContent = d.today?.checkin_time ? formatTime(d.today.checkin_time) : '—';
+            document.getElementById('todayCheckout').textContent = d.today?.checkout_time ? formatTime(d.today.checkout_time) : '—';
+            document.getElementById('todayHours').textContent = d.today?.total_hours ? d.today.total_hours + 'h' : '—';
+            document.getElementById('todayStatus').innerHTML = d.today?.status ? statusBadge(d.today.status) : '<span class="badge badge-neutral">Not marked</span>';
+
+            // Month stats
+            if (d.month_stats) {
+                document.getElementById('monthPresent').textContent = d.month_stats.present || 0;
+                document.getElementById('monthLate').textContent = d.month_stats.late || 0;
+                document.getElementById('monthAbsent').textContent = d.month_stats.absent || 0;
+                document.getElementById('monthAvgHours').textContent = (d.month_stats.avg_hours || 0) + 'h';
+            }
+
+            // Week
+            const weekGrid = document.getElementById('weekGrid');
+            const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay());
+            let html = '';
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(startOfWeek);
+                day.setDate(startOfWeek.getDate() + i);
+                const dateStr = day.toISOString().split('T')[0];
+                const record = d.this_week?.find(r => r.date === dateStr);
+                const isToday = dateStr === today.toISOString().split('T')[0];
+                let cls = isToday ? 'today' : '';
+                let icon = '—';
+                if (record) {
+                    if (record.status === 'present') { cls += ' present'; icon = '✅'; }
+                    else if (record.status === 'late') { cls += ' late'; icon = '⏰'; }
+                    else if (record.status === 'absent') { cls += ' absent'; icon = '❌'; }
+                }
+                html += `<div class="week-day ${cls}"><div class="day-label">${days[i]}</div><div class="day-status">${icon}</div></div>`;
+            }
+            weekGrid.innerHTML = html;
+        } catch(err) { console.error(err); }
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>

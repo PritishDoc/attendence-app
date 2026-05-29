@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item active"><span class="nav-icon">⚙️</span> Settings</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Settings</div><div class="topbar-subtitle">Company configuration</div></div>
+            </div>
+        </div>
+
+        <div class="page-content" style="max-width:700px">
+            <!-- Company Info -->
+            <div class="card mb-lg animate-fade-in-up">
+                <div class="card-header"><div class="card-title">Company Information</div></div>
+                <form id="companyForm">
+                    <div class="form-group"><label class="form-label">Company Name</label><input type="text" id="companyName" class="form-control"></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div class="form-group"><label class="form-label">Email</label><input type="email" id="companyEmail" class="form-control" readonly></div>
+                        <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="companyPhone" class="form-control"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">Address</label><textarea id="companyAddress" class="form-control" rows="2"></textarea></div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+
+            <!-- Office Location -->
+            <div class="card mb-lg animate-fade-in-up" style="animation-delay:.1s;opacity:0">
+                <div class="card-header"><div class="card-title">Office Location & GPS</div></div>
+                <form id="locationForm">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+                        <div class="form-group"><label class="form-label">Latitude</label><input type="number" step="any" id="officeLat" class="form-control" placeholder="28.6139"></div>
+                        <div class="form-group"><label class="form-label">Longitude</label><input type="number" step="any" id="officeLng" class="form-control" placeholder="77.2090"></div>
+                        <div class="form-group"><label class="form-label">Radius (meters)</label><input type="number" id="officeRadius" class="form-control" placeholder="200"></div>
+                    </div>
+                    <div class="flex gap-sm"><button type="submit" class="btn btn-primary">Update Location</button><button type="button" class="btn btn-secondary" onclick="detectLocation()">📍 Use My Location</button></div>
+                </form>
+            </div>
+
+            <!-- Subscription -->
+            <div class="card animate-fade-in-up" style="animation-delay:.2s;opacity:0">
+                <div class="card-header"><div class="card-title">Subscription</div></div>
+                <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)">
+                    <span class="text-muted">Current Plan</span><span class="badge badge-info" id="currentPlan">—</span>
+                </div>
+                <div class="flex justify-between items-center" style="padding:12px 0;border-bottom:1px solid var(--border-color)">
+                    <span class="text-muted">Max Employees</span><span class="font-semibold" id="maxEmps">—</span>
+                </div>
+                <div class="flex justify-between items-center" style="padding:12px 0">
+                    <span class="text-muted">Expires</span><span class="font-semibold" id="planExpiry">—</span>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/geolocation.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    async function loadSettings() {
+        try {
+            const res = await api.get('/auth/me');
+            if (res.success && res.data.company) {
+                const c = res.data.company;
+                document.getElementById('companyName').value = c.company_name || '';
+                document.getElementById('companyEmail').value = c.email || '';
+                document.getElementById('companyPhone').value = c.phone || '';
+                document.getElementById('companyAddress').value = c.address || '';
+                document.getElementById('officeLat').value = c.office_latitude || '';
+                document.getElementById('officeLng').value = c.office_longitude || '';
+                document.getElementById('officeRadius').value = c.office_radius || 200;
+                document.getElementById('currentPlan').textContent = c.subscription_plan || 'trial';
+                document.getElementById('maxEmps').textContent = c.max_employees || 5;
+                document.getElementById('planExpiry').textContent = c.subscription_expiry ? formatDate(c.subscription_expiry) : '—';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    document.getElementById('companyForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const user = Auth.getUser();
+        try {
+            await api.put(`/companies/${user.company_id}`, {
+                company_name: document.getElementById('companyName').value,
+                phone: document.getElementById('companyPhone').value,
+                address: document.getElementById('companyAddress').value
+            });
+            showToast('Company info updated', 'success');
+        } catch(err) { showToast('Error updating', 'error'); }
+    });
+
+    document.getElementById('locationForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const user = Auth.getUser();
+        try {
+            await api.put(`/companies/${user.company_id}`, {
+                office_latitude: parseFloat(document.getElementById('officeLat').value),
+                office_longitude: parseFloat(document.getElementById('officeLng').value),
+                office_radius: parseInt(document.getElementById('officeRadius').value)
+            });
+            showToast('Location updated', 'success');
+        } catch(err) { showToast('Error updating', 'error'); }
+    });
+
+    async function detectLocation() {
+        try {
+            const pos = await Geo.getCurrentPosition();
+            document.getElementById('officeLat').value = pos.latitude.toFixed(8);
+            document.getElementById('officeLng').value = pos.longitude.toFixed(8);
+            showToast('Location detected', 'success');
+        } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    loadSettings();
+</script>
+</body>
+</html>

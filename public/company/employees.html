@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employees — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item active"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Employees</div><div class="topbar-subtitle">Manage your team</div></div>
+            </div>
+            <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="openModal('addEmployeeModal')">+ Add Employee</button></div>
+        </div>
+
+        <div class="page-content">
+            <!-- Filters -->
+            <div class="card" style="margin-bottom:24px">
+                <div class="flex items-center gap-md" style="flex-wrap:wrap">
+                    <div class="search-box" style="flex:1;min-width:200px">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search employees..." style="padding-left:36px">
+                    </div>
+                    <select class="form-control form-select" id="deptFilter" style="width:auto;min-width:150px">
+                        <option value="">All Departments</option>
+                    </select>
+                    <select class="form-control form-select" id="statusFilter" style="width:auto;min-width:130px">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Designation</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="employeeTable"><tr><td colspan="6" class="text-center text-muted" style="padding:48px">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="flex justify-between items-center" style="padding:16px 0">
+                    <span class="text-sm text-muted" id="paginationInfo">Showing 0 employees</span>
+                    <div class="flex gap-sm" id="paginationBtns"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal-backdrop" id="addEmployeeModal">
+    <div class="modal">
+        <div class="modal-header"><h3 class="modal-title" id="modalTitle">Add Employee</h3><button class="modal-close" onclick="closeModal('addEmployeeModal')">&times;</button></div>
+        <form id="employeeForm">
+            <input type="hidden" id="editId">
+            <div class="form-group"><label class="form-label">Full Name *</label><input type="text" name="name" id="empName" class="form-control" required></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group"><label class="form-label">Email *</label><input type="email" name="email" id="empEmail" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">Phone</label><input type="tel" name="phone" id="empPhone" class="form-control"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group"><label class="form-label">Department</label><select name="department" id="empDept" class="form-control form-select"><option value="">Select</option></select></div>
+                <div class="form-group"><label class="form-label">Designation</label><input type="text" name="designation" id="empDesignation" class="form-control"></div>
+            </div>
+            <div class="form-group" id="passwordGroup"><label class="form-label">Password *</label><input type="password" name="password" id="empPassword" class="form-control" minlength="6"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('addEmployeeModal')">Cancel</button><button type="submit" class="btn btn-primary" id="saveBtn">Add Employee</button></div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    let currentPage = 1;
+
+    async function loadDepartments() {
+        try {
+            const res = await api.get('/departments');
+            if (res.success) {
+                const opts = res.data.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+                document.getElementById('deptFilter').innerHTML = '<option value="">All Departments</option>' + opts;
+                document.getElementById('empDept').innerHTML = '<option value="">Select</option>' + opts;
+            }
+        } catch(e) {}
+    }
+
+    async function loadEmployees(page = 1) {
+        currentPage = page;
+        const search = document.getElementById('searchInput').value;
+        const dept = document.getElementById('deptFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        let url = `/employees?page=${page}&per_page=15`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (dept) url += `&department=${encodeURIComponent(dept)}`;
+        if (status) url += `&status=${status}`;
+
+        try {
+            const res = await api.get(url);
+            const tbody = document.getElementById('employeeTable');
+            if (res.data?.length) {
+                tbody.innerHTML = res.data.map(e => `
+                    <tr>
+                        <td><div class="flex items-center gap-sm"><div class="avatar avatar-sm">${getInitials(e.name)}</div><div><div class="font-medium">${e.name}</div><div class="text-sm text-muted">${e.email}</div></div></div></td>
+                        <td><span class="text-sm font-medium">${e.employee_id_code || '—'}</span></td>
+                        <td>${e.department || '—'}</td>
+                        <td class="text-sm">${e.designation || '—'}</td>
+                        <td>${statusBadge(e.status)}</td>
+                        <td><div class="flex gap-sm"><button class="btn btn-ghost btn-sm" onclick="editEmployee(${e.id})">✏️</button><button class="btn btn-ghost btn-sm" onclick="deleteEmployee(${e.id},'${e.name}')">🗑️</button></div></td>
+                    </tr>
+                `).join('');
+                document.getElementById('paginationInfo').textContent = `Showing ${res.data.length} of ${res.pagination.total} employees`;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:48px">No employees found</td></tr>';
+                document.getElementById('paginationInfo').textContent = '0 employees';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    // Add/Edit employee
+    document.getElementById('employeeForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const editId = document.getElementById('editId').value;
+        const data = {
+            name: document.getElementById('empName').value,
+            email: document.getElementById('empEmail').value,
+            phone: document.getElementById('empPhone').value,
+            department: document.getElementById('empDept').value,
+            designation: document.getElementById('empDesignation').value
+        };
+        const pw = document.getElementById('empPassword').value;
+        if (pw) data.password = pw;
+
+        try {
+            if (editId) {
+                await api.put(`/employees/${editId}`, data);
+                showToast('Employee updated', 'success');
+            } else {
+                if (!pw) { showToast('Password is required', 'error'); return; }
+                await api.post('/employees', data);
+                showToast('Employee added', 'success');
+            }
+            closeModal('addEmployeeModal');
+            loadEmployees(currentPage);
+        } catch(err) { showToast(err.message || 'Error', 'error'); }
+    });
+
+    async function editEmployee(id) {
+        try {
+            const res = await api.get(`/employees/${id}`);
+            if (res.success) {
+                const e = res.data;
+                document.getElementById('editId').value = e.id;
+                document.getElementById('empName').value = e.name;
+                document.getElementById('empEmail').value = e.email;
+                document.getElementById('empPhone').value = e.phone || '';
+                document.getElementById('empDept').value = e.department || '';
+                document.getElementById('empDesignation').value = e.designation || '';
+                document.getElementById('empPassword').value = '';
+                document.getElementById('empPassword').removeAttribute('required');
+                document.getElementById('modalTitle').textContent = 'Edit Employee';
+                document.getElementById('saveBtn').textContent = 'Update';
+                openModal('addEmployeeModal');
+            }
+        } catch(err) { showToast('Error loading employee', 'error'); }
+    }
+
+    async function deleteEmployee(id, name) {
+        if (!confirmAction(`Delete employee "${name}"? This cannot be undone.`)) return;
+        try {
+            await api.delete(`/employees/${id}`);
+            showToast('Employee deleted', 'success');
+            loadEmployees(currentPage);
+        } catch(err) { showToast(err.message || 'Error', 'error'); }
+    }
+
+    // Reset form on modal open for new employee
+    document.querySelector('[onclick="openModal(\'addEmployeeModal\')"]').addEventListener('click', () => {
+        document.getElementById('employeeForm').reset();
+        document.getElementById('editId').value = '';
+        document.getElementById('modalTitle').textContent = 'Add Employee';
+        document.getElementById('saveBtn').textContent = 'Add Employee';
+        document.getElementById('empPassword').setAttribute('required', 'required');
+    });
+
+    // Search debounce
+    document.getElementById('searchInput').addEventListener('input', debounce(() => loadEmployees(1)));
+    document.getElementById('deptFilter').addEventListener('change', () => loadEmployees(1));
+    document.getElementById('statusFilter').addEventListener('change', () => loadEmployees(1));
+
+    loadDepartments();
+    loadEmployees();
+</script>
+</body>
+</html>

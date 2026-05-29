@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item active"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Reports</div><div class="topbar-subtitle">Monthly attendance reports</div></div>
+            </div>
+            <div class="topbar-right"><button class="btn btn-secondary btn-sm" onclick="exportCSV()">📥 Export CSV</button></div>
+        </div>
+
+        <div class="page-content">
+            <div class="card" style="margin-bottom:24px">
+                <div class="flex items-center gap-md">
+                    <select id="monthFilter" class="form-control form-select" style="width:auto"></select>
+                    <select id="yearFilter" class="form-control form-select" style="width:auto"></select>
+                    <button class="btn btn-primary btn-sm" onclick="loadReport()">Generate Report</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><div class="card-title">Monthly Attendance Report</div></div>
+                <div class="table-wrapper">
+                    <table class="table" id="reportTable">
+                        <thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Present</th><th>Late</th><th>Absent</th><th>Half Day</th><th>Avg Hours</th></tr></thead>
+                        <tbody id="reportBody"><tr><td colspan="8" class="text-center text-muted" style="padding:48px">Select month and generate report</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthSel = document.getElementById('monthFilter');
+    const yearSel = document.getElementById('yearFilter');
+    const now = new Date();
+    months.forEach((m,i) => { monthSel.innerHTML += `<option value="${i+1}" ${i===now.getMonth()?'selected':''}>${m}</option>`; });
+    for (let y = now.getFullYear(); y >= now.getFullYear()-2; y--) { yearSel.innerHTML += `<option value="${y}">${y}</option>`; }
+
+    async function loadReport() {
+        const month = monthSel.value;
+        const year = yearSel.value;
+        try {
+            const res = await api.get(`/attendance/report?month=${month}&year=${year}`);
+            const tbody = document.getElementById('reportBody');
+            if (res.success && res.data?.length) {
+                tbody.innerHTML = res.data.map(r => `
+                    <tr>
+                        <td class="font-medium">${r.name}</td>
+                        <td class="text-sm">${r.employee_id_code || '—'}</td>
+                        <td class="text-sm">${r.department || '—'}</td>
+                        <td><span class="text-success font-semibold">${r.present_days || 0}</span></td>
+                        <td><span class="text-warning font-semibold">${r.late_days || 0}</span></td>
+                        <td><span class="text-danger font-semibold">${r.absent_days || 0}</span></td>
+                        <td><span class="font-semibold">${r.half_days || 0}</span></td>
+                        <td class="font-medium">${r.avg_hours || '—'}h</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:48px">No data for selected period</td></tr>';
+            }
+        } catch(err) { showToast('Error loading report', 'error'); }
+    }
+
+    function exportCSV() {
+        const table = document.getElementById('reportTable');
+        let csv = [];
+        table.querySelectorAll('tr').forEach(row => {
+            const cols = [];
+            row.querySelectorAll('th, td').forEach(col => cols.push('"' + col.textContent.trim() + '"'));
+            csv.push(cols.join(','));
+        });
+        const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `attendance_report_${yearSel.value}_${monthSel.value}.csv`;
+        a.click();
+    }
+
+    loadReport();
+</script>
+</body>
+</html>

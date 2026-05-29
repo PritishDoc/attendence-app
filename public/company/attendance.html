@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item active"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Attendance</div><div class="topbar-subtitle">Today's attendance log</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Stats summary -->
+            <div class="stats-grid" id="attendanceStats">
+                <div class="card stat-card green"><div class="flex items-center justify-between"><div><div class="stat-label">Present</div><div class="stat-value" id="aPresent">—</div></div><div class="stat-icon">✅</div></div></div>
+                <div class="card stat-card red"><div class="flex items-center justify-between"><div><div class="stat-label">Absent</div><div class="stat-value" id="aAbsent">—</div></div><div class="stat-icon">❌</div></div></div>
+                <div class="card stat-card yellow"><div class="flex items-center justify-between"><div><div class="stat-label">Late</div><div class="stat-value" id="aLate">—</div></div><div class="stat-icon">⏰</div></div></div>
+                <div class="card stat-card blue"><div class="flex items-center justify-between"><div><div class="stat-label">Field</div><div class="stat-value" id="aField">—</div></div><div class="stat-icon">🗺️</div></div></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card" style="margin-bottom:24px">
+                <div class="flex items-center gap-md" style="flex-wrap:wrap">
+                    <input type="date" id="dateFilter" class="form-control" style="width:auto">
+                    <select id="deptFilter" class="form-control form-select" style="width:auto;min-width:150px"><option value="">All Departments</option></select>
+                    <select id="statusFilter" class="form-control form-select" style="width:auto;min-width:130px">
+                        <option value="">All Status</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead><tr><th>Employee</th><th>Department</th><th>Type</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th></tr></thead>
+                        <tbody id="attendanceTable"><tr><td colspan="7" class="text-center text-muted" style="padding:48px">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    document.getElementById('dateFilter').value = new Date().toISOString().split('T')[0];
+
+    async function loadDepartments() {
+        try {
+            const res = await api.get('/departments');
+            if (res.success) {
+                document.getElementById('deptFilter').innerHTML = '<option value="">All Departments</option>' + res.data.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+            }
+        } catch(e) {}
+    }
+
+    async function loadAttendance() {
+        const date = document.getElementById('dateFilter').value;
+        const dept = document.getElementById('deptFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        let url = `/attendance/today?date=${date}`;
+        if (dept) url += `&department=${encodeURIComponent(dept)}`;
+        if (status) url += `&status=${status}`;
+
+        try {
+            const res = await api.get(url);
+            const tbody = document.getElementById('attendanceTable');
+            if (res.success && res.data?.length) {
+                let present=0, late=0, field=0;
+                res.data.forEach(r => {
+                    if (r.status==='present'||r.status==='late') present++;
+                    if (r.status==='late') late++;
+                    if (r.attendance_type==='field') field++;
+                });
+                document.getElementById('aPresent').textContent = present;
+                document.getElementById('aLate').textContent = late;
+                document.getElementById('aField').textContent = field;
+
+                tbody.innerHTML = res.data.map(r => `
+                    <tr>
+                        <td><div class="flex items-center gap-sm"><div class="avatar avatar-sm">${getInitials(r.employee_name)}</div><span class="font-medium">${r.employee_name}</span></div></td>
+                        <td class="text-sm">${r.department || '—'}</td>
+                        <td><span class="badge ${r.attendance_type==='field'?'badge-info':'badge-neutral'}">${r.attendance_type}</span></td>
+                        <td class="text-sm">${formatTime(r.checkin_time)}</td>
+                        <td class="text-sm">${r.checkout_time ? formatTime(r.checkout_time) : '—'}</td>
+                        <td class="text-sm font-medium">${r.total_hours ? r.total_hours + 'h' : '—'}</td>
+                        <td>${statusBadge(r.status)}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:48px">No attendance records</td></tr>';
+                document.getElementById('aPresent').textContent = '0';
+                document.getElementById('aLate').textContent = '0';
+                document.getElementById('aField').textContent = '0';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    document.getElementById('dateFilter').addEventListener('change', loadAttendance);
+    document.getElementById('deptFilter').addEventListener('change', loadAttendance);
+    document.getElementById('statusFilter').addEventListener('change', loadAttendance);
+
+    loadDepartments();
+    loadAttendance();
+</script>
+</body>
+</html>

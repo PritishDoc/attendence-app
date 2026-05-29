@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Attendance — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:16px}
+        .cal-header{text-align:center;font-size:.75rem;font-weight:600;color:var(--text-tertiary);padding:8px 0;text-transform:uppercase}
+        .cal-day{text-align:center;padding:10px 4px;border-radius:var(--radius-sm);font-size:.85rem;cursor:default;transition:background .2s}
+        .cal-day.empty{opacity:0}
+        .cal-day.present{background:var(--color-success-bg);color:var(--color-success);font-weight:600}
+        .cal-day.late{background:var(--color-warning-bg);color:var(--color-warning);font-weight:600}
+        .cal-day.absent{background:var(--color-danger-bg);color:var(--color-danger);font-weight:600}
+        .cal-day.today{outline:2px solid var(--accent-primary);outline-offset:-2px}
+        .cal-nav{display:flex;align-items:center;justify-content:space-between}
+        .cal-nav button{background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem;padding:4px 8px}
+        .cal-nav button:hover{color:var(--text-primary)}
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Menu</div>
+                <a href="index.html" class="nav-item"><span class="nav-icon">🏠</span> Dashboard</a>
+                <a href="attendance.html" class="nav-item active"><span class="nav-icon">📋</span> My Attendance</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">EM</div><div class="sidebar-user-info"><div class="sidebar-user-name">Employee</div><div class="sidebar-user-role">Employee</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">My Attendance</div><div class="topbar-subtitle">View your attendance history</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="grid grid-2">
+                <!-- Calendar -->
+                <div class="card animate-fade-in-up">
+                    <div class="cal-nav">
+                        <button onclick="changeMonth(-1)">◀</button>
+                        <h4 id="calTitle"></h4>
+                        <button onclick="changeMonth(1)">▶</button>
+                    </div>
+                    <div class="calendar" id="calendar">
+                        <div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div><div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>
+                    </div>
+                    <div class="flex gap-lg justify-center mt-lg" style="flex-wrap:wrap">
+                        <div class="flex items-center gap-sm text-sm"><span style="width:12px;height:12px;border-radius:3px;background:var(--color-success-bg);border:1px solid var(--color-success)"></span> Present</div>
+                        <div class="flex items-center gap-sm text-sm"><span style="width:12px;height:12px;border-radius:3px;background:var(--color-warning-bg);border:1px solid var(--color-warning)"></span> Late</div>
+                        <div class="flex items-center gap-sm text-sm"><span style="width:12px;height:12px;border-radius:3px;background:var(--color-danger-bg);border:1px solid var(--color-danger)"></span> Absent</div>
+                    </div>
+                </div>
+
+                <!-- Monthly Summary -->
+                <div class="card animate-fade-in-up stagger-2">
+                    <div class="card-header"><div class="card-title">Monthly Summary</div></div>
+                    <div id="monthlySummary" style="padding:8px 0">
+                        <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Total Working Days</span><span class="font-semibold" id="sumTotal">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Present</span><span class="font-semibold text-success" id="sumPresent">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Late</span><span class="font-semibold text-warning" id="sumLate">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid var(--border-color)"><span class="text-muted">Absent</span><span class="font-semibold text-danger" id="sumAbsent">—</span></div>
+                        <div class="flex justify-between items-center" style="padding:10px 0"><span class="text-muted">Avg Hours/Day</span><span class="font-semibold" id="sumAvgHours">—</span></div>
+                    </div>
+
+                    <!-- Recent records -->
+                    <div class="card-header" style="margin-top:16px"><div class="card-title">Recent Records</div></div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Status</th></tr></thead>
+                            <tbody id="recentRecords"><tr><td colspan="4" class="text-center text-muted">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['employee']);
+    populateSidebarUser();
+
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+    let attendanceData = [];
+
+    function changeMonth(delta) {
+        currentMonth += delta;
+        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+        loadAttendance();
+    }
+
+    function renderCalendar() {
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        document.getElementById('calTitle').textContent = `${months[currentMonth]} ${currentYear}`;
+
+        const cal = document.getElementById('calendar');
+        // Keep headers
+        cal.innerHTML = '<div class="cal-header">Sun</div><div class="cal-header">Mon</div><div class="cal-header">Tue</div><div class="cal-header">Wed</div><div class="cal-header">Thu</div><div class="cal-header">Fri</div><div class="cal-header">Sat</div>';
+
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const today = new Date();
+
+        // Empty cells
+        for (let i = 0; i < firstDay; i++) cal.innerHTML += '<div class="cal-day empty"></div>';
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const record = attendanceData.find(r => r.date === dateStr);
+            const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === d;
+            let cls = isToday ? 'today' : '';
+            if (record) cls += ` ${record.status === 'present' ? 'present' : record.status}`;
+            cal.innerHTML += `<div class="cal-day ${cls}">${d}</div>`;
+        }
+    }
+
+    async function loadAttendance() {
+        const startDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`;
+        const endDate = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${new Date(currentYear, currentMonth+1, 0).getDate()}`;
+
+        try {
+            const res = await api.get(`/attendance/history?start_date=${startDate}&end_date=${endDate}`);
+            if (res.success) {
+                attendanceData = res.data || [];
+                renderCalendar();
+
+                const present = attendanceData.filter(r => r.status === 'present').length;
+                const late = attendanceData.filter(r => r.status === 'late').length;
+                const absent = attendanceData.filter(r => r.status === 'absent').length;
+                const avgHours = attendanceData.length ? (attendanceData.reduce((s,r) => s + (parseFloat(r.total_hours)||0), 0) / attendanceData.length).toFixed(1) : '0';
+
+                document.getElementById('sumTotal').textContent = attendanceData.length;
+                document.getElementById('sumPresent').textContent = present;
+                document.getElementById('sumLate').textContent = late;
+                document.getElementById('sumAbsent').textContent = absent;
+                document.getElementById('sumAvgHours').textContent = avgHours + 'h';
+
+                const tbody = document.getElementById('recentRecords');
+                const recent = attendanceData.slice(0, 10);
+                if (recent.length) {
+                    tbody.innerHTML = recent.map(r => `
+                        <tr>
+                            <td class="text-sm">${formatDate(r.date)}</td>
+                            <td class="text-sm">${formatTime(r.checkin_time)}</td>
+                            <td class="text-sm">${r.checkout_time ? formatTime(r.checkout_time) : '—'}</td>
+                            <td>${statusBadge(r.status)}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No records this month</td></tr>';
+                }
+            }
+        } catch(err) { console.error(err); renderCalendar(); }
+    }
+
+    loadAttendance();
+</script>
+</body>
+</html>
