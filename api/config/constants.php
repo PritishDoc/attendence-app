@@ -12,8 +12,11 @@ define('API_URL', 'http://localhost/api');
 // JWT Configuration
 define('JWT_SECRET', 'attendify_secret_key_change_in_production_2024');
 define('JWT_ALGORITHM', 'HS256');
-define('JWT_EXPIRY', 86400); // 24 hours in seconds
-define('JWT_REFRESH_EXPIRY', 604800); // 7 days in seconds
+define('JWT_EXPIRY', 900); // 15 minutes in seconds (Access Token)
+define('JWT_REFRESH_EXPIRY', 2592000); // 30 days in seconds (Refresh Token)
+define('JWT_ABSOLUTE_EXPIRY', 7776000); // 90 days in seconds (Absolute Session Limit)
+define('JWT_ISSUER', 'attendify-api');
+define('JWT_AUDIENCE', 'attendify-users');
 
 // Attendance Configuration
 define('DEFAULT_OFFICE_RADIUS', 200); // meters

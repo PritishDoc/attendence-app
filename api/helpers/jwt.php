@@ -12,16 +12,21 @@ class JWT {
      * @param array $payload Data to encode in the token
      * @return string The JWT token
      */
-    public static function generate(array $payload): string {
+    public static function generate(array $payload, int $expirySeconds = null): string {
         $header = [
             'typ' => 'JWT',
             'alg' => JWT_ALGORITHM
         ];
 
-        // Add issued-at and expiry
+        // Add standard claims
+        $payload['iss'] = JWT_ISSUER;
+        $payload['aud'] = JWT_AUDIENCE;
+        $payload['jti'] = bin2hex(random_bytes(16));
         $payload['iat'] = time();
+        
         if (!isset($payload['exp'])) {
-            $payload['exp'] = time() + JWT_EXPIRY;
+            $expirySeconds = $expirySeconds ?? JWT_EXPIRY;
+            $payload['exp'] = time() + $expirySeconds;
         }
 
         $headerEncoded  = self::base64UrlEncode(json_encode($header));
@@ -65,6 +70,14 @@ class JWT {
 
         // Check expiry
         if (isset($payload['exp']) && $payload['exp'] < time()) {
+            return false;
+        }
+
+        // Verify standard claims
+        if (!isset($payload['iss']) || $payload['iss'] !== JWT_ISSUER) {
+            return false;
+        }
+        if (!isset($payload['aud']) || $payload['aud'] !== JWT_AUDIENCE) {
             return false;
         }
 

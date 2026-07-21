@@ -10,15 +10,17 @@ class AuthController
     {
         $body = getRequestBody();
         $v = new Validator();
-        $v->required('email', $body['email'] ?? '')->email('email', $body['email'] ?? '');
+        
+        $identifier = $body['identifier'] ?? $body['email'] ?? $body['phone'] ?? '';
+        $v->required('identifier (email or phone)', $identifier);
         $v->required('password', $body['password'] ?? '');
         $v->validate();
 
         $userModel = new User();
-        $user = $userModel->findByEmail($body['email']);
+        $user = $userModel->findByPhoneOrEmail($identifier);
 
         if (!$user || !password_verify($body['password'], $user['password_hash'])) {
-            Response::error('Invalid email or password', 401);
+            Response::error('Invalid credentials', 401);
         }
 
         if ($user['status'] !== 'active') {
@@ -52,15 +54,38 @@ class AuthController
 
         $userModel->updateLastLogin($user['id']);
 
-        $token = JWT::generate([
+        $accessToken = JWT::generate([
             'user_id' => $user['id'],
             'company_id' => $user['company_id'],
             'role' => $user['role'],
-            'email' => $user['email']
+            'email' => $user['email'],
+            'type' => 'access'
+        ], JWT_EXPIRY);
+
+        $refreshToken = JWT::generate([
+            'user_id' => $user['id'],
+            'type' => 'refresh',
+            'absolute_exp' => time() + JWT_ABSOLUTE_EXPIRY
+        ], JWT_REFRESH_EXPIRY);
+        
+        $userModel->update($user['id'], [
+            'refresh_token_hash' => password_hash($refreshToken, PASSWORD_BCRYPT),
+            'previous_refresh_token_hash' => null,
+            'grace_period_expires_at' => null
+        ]);
+
+        $isSecure = !in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        
+        setcookie('refresh_token', $refreshToken, [
+            'expires' => time() + JWT_REFRESH_EXPIRY,
+            'path' => '/',
+            'secure' => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Strict'
         ]);
 
         Response::success([
-            'token' => $token,
+            'token' => $accessToken,
             'user' => [
                 'id' => $user['id'],
                 'name' => $user['name'],
@@ -68,7 +93,8 @@ class AuthController
                 'role' => $user['role'],
                 'company_id' => $user['company_id'],
                 'department' => $user['department'],
-                'avatar_url' => $user['avatar_url']
+                'avatar_url' => $user['avatar_url'],
+                'is_first_login' => $user['is_first_login'] ?? 1
             ]
         ], 'Login successful');
     }
@@ -120,15 +146,38 @@ class AuthController
             'designation' => 'Admin'
         ]);
 
-        $token = JWT::generate([
+        $accessToken = JWT::generate([
             'user_id' => $userId,
             'company_id' => $companyId,
             'role' => ROLE_COMPANY_ADMIN,
-            'email' => $body['email']
+            'email' => $body['email'],
+            'type' => 'access'
+        ], JWT_EXPIRY);
+
+        $refreshToken = JWT::generate([
+            'user_id' => $userId,
+            'type' => 'refresh',
+            'absolute_exp' => time() + JWT_ABSOLUTE_EXPIRY
+        ], JWT_REFRESH_EXPIRY);
+        
+        $userModel->update($userId, [
+            'refresh_token_hash' => password_hash($refreshToken, PASSWORD_BCRYPT),
+            'previous_refresh_token_hash' => null,
+            'grace_period_expires_at' => null
+        ]);
+
+        $isSecure = !in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        
+        setcookie('refresh_token', $refreshToken, [
+            'expires' => time() + JWT_REFRESH_EXPIRY,
+            'path' => '/',
+            'secure' => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Strict'
         ]);
 
         Response::success([
-            'token' => $token,
+            'token' => $accessToken,
             'user' => ['id' => $userId, 'name' => $body['name'], 'email' => $body['email'], 'role' => ROLE_COMPANY_ADMIN, 'company_id' => $companyId],
             'company_id' => $companyId
         ], 'Registration successful', 201);
@@ -148,5 +197,164 @@ class AuthController
             $data['company'] = $companyModel->findById($user['company_id']);
         }
         Response::success($data);
+    }
+
+    public static function changeInitialPassword(): void
+    {
+        $auth = authenticate();
+        $body = getRequestBody();
+        $v = new Validator();
+        $v->required('new_password', $body['new_password'] ?? '')->minLength('new_password', $body['new_password'] ?? '', 6);
+        $v->validate();
+
+        $userModel = new User();
+        $user = $userModel->findById($auth['user_id']);
+        if (!$user) {
+            Response::error('User not found', 404);
+        }
+
+        if (!$user['is_first_login']) {
+            Response::error('Password has already been changed or not required.', 400);
+        }
+
+        $hashedPassword = password_hash($body['new_password'], PASSWORD_BCRYPT);
+        $userModel->updatePassword($auth['user_id'], $hashedPassword);
+        $userModel->update($auth['user_id'], ['is_first_login' => 0]);
+
+        Response::success(null, 'Password updated successfully');
+    }
+
+    public static function refreshToken(): void
+    {
+        $refreshToken = $_COOKIE['refresh_token'] ?? null;
+        if (!$refreshToken) {
+            Response::error('No refresh token provided', 401);
+        }
+
+        $payload = JWT::verify($refreshToken);
+        if (!$payload || ($payload['type'] ?? '') !== 'refresh') {
+            Response::error('Invalid token', 401);
+        }
+
+        if (isset($payload['absolute_exp']) && time() > $payload['absolute_exp']) {
+            Response::error('Session expired completely. Please log in again.', 401);
+        }
+
+        $userModel = new User();
+        $user = $userModel->findById($payload['user_id']);
+        if (!$user || $user['status'] !== 'active') {
+            Response::error('User inactive or not found', 401);
+        }
+
+        // Check Race Condition
+        if ($user['previous_refresh_token_hash'] && password_verify($refreshToken, $user['previous_refresh_token_hash'])) {
+            if ($user['grace_period_expires_at'] && strtotime($user['grace_period_expires_at']) > time()) {
+                // Innocent race condition: grant new access token, but do NOT rotate refresh token
+                $accessToken = JWT::generate([
+                    'user_id' => $user['id'],
+                    'company_id' => $user['company_id'],
+                    'role' => $user['role'],
+                    'email' => $user['email'],
+                    'type' => 'access'
+                ], JWT_EXPIRY);
+                Response::success(['token' => $accessToken], 'Access token refreshed (Grace)');
+            }
+        }
+
+        // Check if token matches current active hash
+        if (!$user['refresh_token_hash'] || !password_verify($refreshToken, $user['refresh_token_hash'])) {
+            // Token Reuse Attack Detected!
+            $userModel->update($user['id'], [
+                'refresh_token_hash' => null,
+                'previous_refresh_token_hash' => null,
+                'grace_period_expires_at' => null
+            ]);
+            Response::error('Suspicious activity detected. You have been logged out of all devices.', 401);
+        }
+
+        // Normal Rotation
+        $accessToken = JWT::generate([
+            'user_id' => $user['id'],
+            'company_id' => $user['company_id'],
+            'role' => $user['role'],
+            'email' => $user['email'],
+            'type' => 'access'
+        ], JWT_EXPIRY);
+
+        $newRefreshToken = JWT::generate([
+            'user_id' => $user['id'],
+            'type' => 'refresh',
+            'absolute_exp' => $payload['absolute_exp'] ?? (time() + JWT_ABSOLUTE_EXPIRY)
+        ], JWT_REFRESH_EXPIRY);
+        
+        $userModel->update($user['id'], [
+            'previous_refresh_token_hash' => $user['refresh_token_hash'],
+            'grace_period_expires_at' => date('Y-m-d H:i:s', time() + 60), // 60 seconds grace
+            'refresh_token_hash' => password_hash($newRefreshToken, PASSWORD_BCRYPT)
+        ]);
+
+        $isSecure = !in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        
+        setcookie('refresh_token', $newRefreshToken, [
+            'expires' => time() + JWT_REFRESH_EXPIRY,
+            'path' => '/',
+            'secure' => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Strict'
+        ]);
+
+        Response::success(['token' => $accessToken], 'Tokens refreshed successfully');
+    }
+
+    public static function logout(): void
+    {
+        $userId = null;
+        $userModel = new User();
+
+        // 1. Try extracting from Access Token (Authorization header)
+        $headers = getallheaders();
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        if (preg_match('/Bearer\s+(.+)$/i', $authHeader, $matches)) {
+            $accessPayload = JWT::verify($matches[1]);
+            if ($accessPayload && isset($accessPayload['user_id'])) {
+                $userId = $accessPayload['user_id'];
+            }
+        }
+
+        // 2. Try extracting and strictly validating from Refresh Token Cookie
+        $refreshToken = $_COOKIE['refresh_token'] ?? null;
+        if ($refreshToken) {
+            $refreshPayload = JWT::verify($refreshToken);
+            if ($refreshPayload && isset($refreshPayload['user_id'])) {
+                $user = $userModel->findById($refreshPayload['user_id']);
+                // Guard: Only trust if user exists and token matches active DB hash
+                if ($user && $user['refresh_token_hash'] && password_verify($refreshToken, $user['refresh_token_hash'])) {
+                    $userId = $refreshPayload['user_id'];
+                }
+            }
+        }
+        
+        // 3. If a valid identity was proven, wipe the DB session
+        if ($userId) {
+            $userModel->update($userId, [
+                'refresh_token_hash' => null,
+                'previous_refresh_token_hash' => null,
+                'grace_period_expires_at' => null
+            ]);
+        }
+
+        $isSecure = !in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        
+        // 4. Unconditionally destroy the secure cookie
+        setcookie('refresh_token', '', [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'secure' => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Strict'
+        ]);
+
+        // 5. Always return success to allow graceful frontend teardown
+        Response::success(null, 'Logged out successfully');
     }
 }

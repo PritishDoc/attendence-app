@@ -11,7 +11,7 @@ class User {
     }
 
     public function findById(int $id): ?array {
-        $stmt = $this->db->prepare("SELECT id, company_id, name, email, phone, role, department, designation, avatar_url, employee_id_code, status, last_login, created_at FROM users WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$id]);
         $user = $stmt->fetch();
         return $user ?: null;
@@ -20,6 +20,13 @@ class User {
     public function findByEmail(string $email): ?array {
         $stmt = $this->db->prepare("SELECT * FROM users WHERE email = ?");
         $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        return $user ?: null;
+    }
+
+    public function findByPhoneOrEmail(string $identifier): ?array {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE email = ? OR phone = ?");
+        $stmt->execute([$identifier, $identifier]);
         $user = $stmt->fetch();
         return $user ?: null;
     }
@@ -56,7 +63,7 @@ class User {
         $total = (int) $countStmt->fetchColumn();
 
         // Data
-        $stmt = $this->db->prepare("SELECT id, company_id, name, email, phone, role, department, designation, employee_id_code, status, last_login, created_at FROM users WHERE $where ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
+        $stmt = $this->db->prepare("SELECT id, company_id, name, email, phone, role, department, designation, employee_id_code, status, is_first_login, last_login, created_at FROM users WHERE $where ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
 
         return ['data' => $stmt->fetchAll(), 'total' => $total, 'page' => $page, 'per_page' => $perPage];
@@ -76,7 +83,7 @@ class User {
     public function update(int $id, array $data): bool {
         $fields = [];
         $params = [];
-        $allowed = ['name', 'email', 'phone', 'department', 'designation', 'employee_id_code', 'status', 'avatar_url', 'device_uuid'];
+        $allowed = ['name', 'email', 'phone', 'department', 'designation', 'employee_id_code', 'status', 'avatar_url', 'device_uuid', 'is_first_login', 'refresh_token_hash', 'previous_refresh_token_hash', 'grace_period_expires_at'];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = ?";

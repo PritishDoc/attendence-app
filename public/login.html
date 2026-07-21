@@ -28,14 +28,39 @@
 
             <form id="loginForm" autocomplete="on">
                 <div class="form-group">
-                    <label class="form-label" for="email">Email Address</label>
-                    <input type="email" id="email" name="email" class="form-control" placeholder="you@company.com" required autofocus>
+                    <label class="form-label" for="email">Email or Phone</label>
+                    <input type="text" id="email" name="email" class="form-control" placeholder="you@company.com or 9876543210" required autofocus>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="password">Password</label>
-                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required minlength="6">
+                    <div style="position:relative">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required minlength="6" style="padding-right:40px">
+                        <button type="button" class="eye-btn" onclick="togglePassword('password', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;opacity:0.6" title="Toggle Password Visibility">👁</button>
+                    </div>
                 </div>
                 <button type="submit" id="loginBtn" class="btn btn-primary btn-block btn-lg" style="margin-top:8px">Sign In</button>
+            </form>
+
+            <form id="resetPasswordForm" autocomplete="off" style="display:none">
+                <div style="margin-bottom:16px;font-size:0.9rem;color:var(--text-secondary)">
+                    Welcome! For your security, please change the password provided by your administrator before continuing.
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new_password">New Password</label>
+                    <div style="position:relative">
+                        <input type="password" id="new_password" name="new_password" class="form-control" placeholder="••••••••" required style="padding-right:40px">
+                        <button type="button" class="eye-btn" onclick="togglePassword('new_password', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;opacity:0.6" title="Toggle Password Visibility">👁</button>
+                    </div>
+                    <small style="color:var(--text-tertiary);font-size:0.75rem;margin-top:4px;display:block">Min 6 chars, 1 number, 1 uppercase, 1 lowercase.</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirm_password">Confirm Password</label>
+                    <div style="position:relative">
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="••••••••" required style="padding-right:40px">
+                        <button type="button" class="eye-btn" onclick="togglePassword('confirm_password', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;opacity:0.6" title="Toggle Password Visibility">👁</button>
+                    </div>
+                </div>
+                <button type="submit" id="resetBtn" class="btn btn-primary btn-block btn-lg" style="margin-top:8px">Change Password</button>
             </form>
 
             <div class="auth-divider">or</div>
@@ -73,6 +98,19 @@
             particlesEl.appendChild(p);
         }
 
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.style.opacity = '1';
+                btn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                btn.style.opacity = '0.6';
+                btn.textContent = '👁';
+            }
+        }
+
         // Login form
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -83,15 +121,62 @@
             btn.innerHTML = '<span class="spinner"></span>';
 
             try {
-                await Auth.login(
+                const res = await Auth.login(
                     document.getElementById('email').value,
                     document.getElementById('password').value
                 );
+                
+                if (res && res.requires_password_change) {
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.querySelector('.auth-divider').style.display = 'none';
+                    document.querySelector('.auth-footer').style.display = 'none';
+                    document.getElementById('resetPasswordForm').style.display = 'block';
+                    errorMsg.style.display = 'none';
+                }
             } catch (err) {
                 errorMsg.textContent = err.message || 'Invalid credentials';
                 errorMsg.style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Sign In';
+            }
+        });
+
+        // Reset Password Form
+        document.getElementById('resetPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('resetBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
+            
+            const newPass = document.getElementById('new_password').value;
+            const confPass = document.getElementById('confirm_password').value;
+
+            // Strict Policy check: min 6 chars, 1 uppercase, 1 lowercase, 1 number
+            const policyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+            if (!policyRegex.test(newPass)) {
+                errorMsg.textContent = 'Password must be at least 6 characters and include a number, uppercase, and lowercase letter.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (newPass !== confPass) {
+                errorMsg.textContent = 'Passwords do not match.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>';
+
+            try {
+                await api.post('/auth/change-initial-password', { new_password: newPass });
+                alert("Password changed successfully! Please log in with your new password.");
+                await Auth.logout(); // Destroys temporary session and reloads login page
+            } catch (err) {
+                errorMsg.textContent = err.message || 'Failed to change password.';
+                errorMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Change Password';
             }
         });
     </script>

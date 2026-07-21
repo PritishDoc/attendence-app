@@ -57,6 +57,15 @@ try {
     elseif ($uri === '/auth/me' && $method === 'GET') {
         AuthController::me();
     }
+    elseif ($uri === '/auth/change-initial-password' && $method === 'POST') {
+        AuthController::changeInitialPassword();
+    }
+    elseif ($uri === '/auth/refresh-token' && $method === 'POST') {
+        AuthController::refreshToken();
+    }
+    elseif ($uri === '/auth/logout' && $method === 'POST') {
+        AuthController::logout();
+    }
 
     // ─── Company Routes ───
     elseif ($uri === '/companies' && $method === 'GET') {
