@@ -20,8 +20,23 @@ function authenticate(): array {
     $token = $matches[1];
     $payload = JWT::verify($token);
 
-    if (!$payload) {
+    if (!$payload || !isset($payload['user_id'])) {
         Response::error('Invalid or expired token', 401);
+    }
+
+    $userModel = new User();
+    $user = $userModel->findById($payload['user_id']);
+
+    if (!$user) {
+        Response::error('User not found or deleted', 401);
+    }
+
+    if ($user['status'] !== 'active') {
+        Response::error('Account is deactivated', 401);
+    }
+
+    if (!isset($payload['token_version']) || (int)$user['token_version'] !== (int)$payload['token_version']) {
+        Response::error('Session expired or invalidated', 401);
     }
 
     return $payload;

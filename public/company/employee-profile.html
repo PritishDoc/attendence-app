@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Profile — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item active"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div>
+                <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div>
+                    <div class="topbar-title">Employee Profile</div>
+                    <div class="topbar-subtitle" id="empNameSubtitle">Loading...</div>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <a href="employees.html" class="btn btn-secondary btn-sm">← Back to Employees</a>
+            </div>
+        </div>
+
+        <div class="page-content">
+            
+            <div class="grid grid-2" style="gap:24px; align-items: start;">
+                <!-- Joining Details Form -->
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Joining & Sensitive Details</div></div>
+                    <form id="joiningForm" style="padding:16px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                            <div class="form-group">
+                                <label class="form-label">Branch</label>
+                                <select id="branchId" class="form-control form-select"><option value="">Select Branch</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Employee Code</label>
+                                <input type="text" id="employeeCode" class="form-control">
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                            <div class="form-group">
+                                <label class="form-label">Joining Date</label>
+                                <input type="date" id="joiningDate" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Date of Birth</label>
+                                <input type="date" id="dob" class="form-control">
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                            <div class="form-group">
+                                <label class="form-label">Aadhaar No</label>
+                                <input type="text" id="aadhaarNo" class="form-control" placeholder="Masked if existing">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">PAN No</label>
+                                <input type="text" id="panNo" class="form-control" placeholder="Masked if existing">
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                            <div class="form-group">
+                                <label class="form-label">ESIC No</label>
+                                <input type="text" id="esicNo" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">PF No</label>
+                                <input type="text" id="pfNo" class="form-control">
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                            <div class="form-group">
+                                <label class="form-label">Bank Name</label>
+                                <input type="text" id="bankName" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">IFSC Code</label>
+                                <input type="text" id="ifscCode" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" class="btn btn-primary" id="saveJoiningBtn">Save Details</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Document Upload & List -->
+                <div class="card">
+                    <div class="card-header"><div class="card-title">Employee Documents</div></div>
+                    <div style="padding:16px;">
+                        <form id="uploadForm" style="display:flex; gap:8px; align-items:end; margin-bottom:24px;">
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <label class="form-label text-sm">Document Type</label>
+                                <select id="docType" class="form-control form-select" required><option value="">Select Type</option></select>
+                            </div>
+                            <div class="form-group" style="flex:2; margin-bottom:0;">
+                                <label class="form-label text-sm">File (PDF, JPG, PNG)</label>
+                                <input type="file" id="docFile" class="form-control" accept="application/pdf,image/jpeg,image/png" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="uploadBtn">Upload</button>
+                        </form>
+
+                        <div class="table-wrapper">
+                            <table class="table text-sm">
+                                <thead><tr><th>Document</th><th>Date</th><th>Size</th><th>Actions</th></tr></thead>
+                                <tbody id="docsTable">
+                                    <tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const employeeId = urlParams.get('id');
+    
+    if (!employeeId) {
+        window.location.href = 'employees.html';
+    }
+
+    async function loadInitialData() {
+        try {
+            // Load branches
+            const branchRes = await api.get('/branches');
+            if (branchRes.success && branchRes.data) {
+                const branchSel = document.getElementById('branchId');
+                branchRes.data.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b.id;
+                    opt.textContent = b.name;
+                    branchSel.appendChild(opt);
+                });
+            }
+
+            // Load Doc types
+            const typeRes = await api.get('/document-types');
+            if (typeRes.success && typeRes.data) {
+                const docSel = document.getElementById('docType');
+                typeRes.data.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name + (t.is_required ? ' *' : '');
+                    docSel.appendChild(opt);
+                });
+            }
+
+            // Load Basic Employee Name (for header)
+            const empRes = await api.get(`/employees/${employeeId}`);
+            if (empRes.success && empRes.data) {
+                document.getElementById('empNameSubtitle').textContent = empRes.data.name + ' (' + empRes.data.email + ')';
+            }
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function loadJoiningDetails() {
+        try {
+            const res = await api.get(`/admin/employees/${employeeId}/joining-details`);
+            if (res.success && res.data && res.data.joining_details) {
+                const d = res.data.joining_details;
+                if (d.branch_id) document.getElementById('branchId').value = d.branch_id;
+                if (d.employee_code) document.getElementById('employeeCode').value = d.employee_code;
+                if (d.joining_date) document.getElementById('joiningDate').value = d.joining_date;
+                if (d.dob) document.getElementById('dob').value = d.dob;
+                
+                if (d.aadhaar_last4) {
+                    document.getElementById('aadhaarNo').placeholder = `********${d.aadhaar_last4}`;
+                }
+                if (d.pan_last4) {
+                    document.getElementById('panNo').placeholder = `******${d.pan_last4}`;
+                }
+                if (d.esic_no) document.getElementById('esicNo').value = d.esic_no;
+                if (d.pf_no) document.getElementById('pfNo').value = d.pf_no;
+                if (d.bank_name) document.getElementById('bankName').value = d.bank_name;
+                if (d.ifsc_code) document.getElementById('ifscCode').value = d.ifsc_code;
+            }
+        } catch(err) {
+            showToast('Failed to load joining details', 'error');
+        }
+    }
+
+    async function loadDocuments() {
+        try {
+            const res = await api.get(`/admin/employees/${employeeId}/documents`);
+            const tbody = document.getElementById('docsTable');
+            if (res.success && res.data && res.data.documents.length) {
+                tbody.innerHTML = res.data.documents.map(d => `
+                    <tr>
+                        <td>
+                            <div class="font-medium">${d.document_type_name || 'Document'}</div>
+                            <div class="text-xs text-muted">${d.file_name}</div>
+                        </td>
+                        <td>${new Date(d.created_at).toLocaleDateString()}</td>
+                        <td>${(d.file_size / 1024).toFixed(1)} KB</td>
+                        <td>
+                            <div class="flex gap-sm">
+                                <a href="${d.url}" target="_blank" class="btn btn-ghost btn-sm" title="View">👁️</a>
+                                <button class="btn btn-ghost btn-sm" onclick="deleteDocument('${d.uuid}')" title="Delete">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No documents uploaded</td></tr>';
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    document.getElementById('joiningForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('saveJoiningBtn');
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+
+        const data = {};
+        const bId = document.getElementById('branchId').value;
+        if (bId) data.branch_id = parseInt(bId);
+        
+        data.employee_code = document.getElementById('employeeCode').value;
+        data.joining_date = document.getElementById('joiningDate').value;
+        data.dob = document.getElementById('dob').value;
+        
+        const aadhaar = document.getElementById('aadhaarNo').value;
+        if (aadhaar) data.aadhaar_no = aadhaar;
+        
+        const pan = document.getElementById('panNo').value;
+        if (pan) data.pan_no = pan;
+
+        data.esic_no = document.getElementById('esicNo').value;
+        data.pf_no = document.getElementById('pfNo').value;
+        data.bank_name = document.getElementById('bankName').value;
+        data.ifsc_code = document.getElementById('ifscCode').value;
+
+        try {
+            await api.put(`/admin/employees/${employeeId}/joining-details`, data);
+            showToast('Joining details updated successfully', 'success');
+            
+            // Clear sensitive fields so placeholder takes over
+            document.getElementById('aadhaarNo').value = '';
+            document.getElementById('panNo').value = '';
+            loadJoiningDetails();
+        } catch(err) {
+            showToast(err.message || 'Error saving details', 'error');
+        } finally {
+            btn.textContent = 'Save Details';
+            btn.disabled = false;
+        }
+    });
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('docFile');
+        const typeInput = document.getElementById('docType');
+        
+        if (!fileInput.files.length) return;
+
+        btn.textContent = '...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('document', fileInput.files[0]);
+        formData.append('document_type_id', typeInput.value);
+
+        try {
+            // we use fetch directly since our api.js might not handle FormData seamlessly for POST if it sets Content-Type to JSON by default.
+            const token = localStorage.getItem('attendify_token');
+            const response = await fetch(`/api/admin/employees/${employeeId}/documents`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                body: formData
+            });
+            const res = await response.json();
+            
+            if (response.ok && res.success) {
+                showToast('Document uploaded successfully', 'success');
+                fileInput.value = '';
+                typeInput.value = '';
+                loadDocuments();
+            } else {
+                showToast(res.message || 'Upload failed', 'error');
+            }
+        } catch(err) {
+            showToast('Error uploading file', 'error');
+        } finally {
+            btn.textContent = 'Upload';
+            btn.disabled = false;
+        }
+    });
+
+    async function deleteDocument(uuid) {
+        if (!confirmAction('Are you sure you want to delete this document?')) return;
+        try {
+            await api.delete(`/admin/employees/documents/${uuid}`);
+            showToast('Document deleted', 'success');
+            loadDocuments();
+        } catch(err) {
+            showToast(err.message || 'Error deleting document', 'error');
+        }
+    }
+
+    // Init
+    Promise.all([
+        loadInitialData(),
+        loadJoiningDetails(),
+        loadDocuments()
+    ]);
+</script>
+</body>
+</html>

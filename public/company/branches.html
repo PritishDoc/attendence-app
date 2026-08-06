@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branches — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item active"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Branches</div><div class="topbar-subtitle">Manage your branches</div></div>
+            </div>
+            <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="openModal('branchModal');document.getElementById('branchForm').reset();document.getElementById('branchEditId').value=''">+ Add Branch</button></div>
+        </div>
+
+        <div class="page-content">
+            <div class="grid grid-3" id="branchGrid"><div class="card text-center" style="padding:48px"><span class="text-muted">Loading...</span></div></div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-backdrop" id="branchModal">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header"><h3 class="modal-title">Branch</h3><button class="modal-close" onclick="closeModal('branchModal')">&times;</button></div>
+        <form id="branchForm">
+            <input type="hidden" id="branchEditId">
+            <div class="form-group"><label class="form-label">Branch Name *</label><input type="text" id="branchName" class="form-control" required></div>
+            <div class="form-group"><label class="form-label">Location</label><textarea id="branchLocation" class="form-control" rows="3"></textarea></div>
+            <div class="form-group"><label class="form-label">Status</label><select id="branchStatus" class="form-control"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('branchModal')">Cancel</button><button type="submit" class="btn btn-primary">Save</button></div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin']);
+    populateSidebarUser();
+
+    async function loadBranches() {
+        try {
+            const res = await api.get('/branches');
+            const grid = document.getElementById('branchGrid');
+            if (res.success && res.data?.length) {
+                grid.innerHTML = res.data.map(d => `
+                    <div class="card" style="text-align:center;padding:24px">
+                        <div style="font-size:2rem;margin-bottom:8px">🏢</div>
+                        <h4>${d.name}</h4>
+                        <div class="badge ${d.status === 'active' ? 'bg-success text-white' : 'bg-warning'}" style="margin:8px 0;display:inline-block">${d.status}</div>
+                        ${d.location ? `<p class="text-sm text-muted" style="margin:12px 0">${d.location}</p>` : ''}
+                        <div class="flex gap-sm justify-center mt-md">
+                            <button class="btn btn-ghost btn-sm" onclick="editBranch(${d.id},'${encodeURIComponent(d.name)}','${encodeURIComponent(d.location||'')}','${d.status}')">✏️ Edit</button>
+                            <button class="btn btn-ghost btn-sm text-danger" onclick="deleteBranch(${d.id},'${encodeURIComponent(d.name)}')">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                grid.innerHTML = '<div class="card text-center" style="padding:48px;grid-column:1/-1"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">No branches yet</div><div class="empty-text">Create your first branch to organize employees</div></div></div>';
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    document.getElementById('branchForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const id = document.getElementById('branchEditId').value;
+        const data = { 
+            name: document.getElementById('branchName').value, 
+            location: document.getElementById('branchLocation').value,
+            status: document.getElementById('branchStatus').value
+        };
+        try {
+            if (id) { await api.put(`/branches/${id}`, data); showToast('Updated', 'success'); }
+            else { await api.post('/branches', data); showToast('Created', 'success'); }
+            closeModal('branchModal');
+            loadBranches();
+        } catch(err) { showToast(err.message || 'Error', 'error'); }
+    });
+
+    function editBranch(id, name, location, status) {
+        document.getElementById('branchEditId').value = id;
+        document.getElementById('branchName').value = decodeURIComponent(name);
+        document.getElementById('branchLocation').value = decodeURIComponent(location);
+        document.getElementById('branchStatus').value = status || 'active';
+        openModal('branchModal');
+    }
+
+    async function deleteBranch(id, name) {
+        const decodedName = decodeURIComponent(name);
+        if (!confirmAction(`Delete branch "${decodedName}"?`)) return;
+        try { await api.delete(`/branches/${id}`); showToast('Deleted', 'success'); loadBranches(); } catch(err) { showToast('Error', 'error'); }
+    }
+
+    loadBranches();
+</script>
+</body>
+</html>

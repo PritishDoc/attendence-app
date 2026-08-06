@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="leaves.html" class="nav-item active"><span class="nav-icon">🌴</span> Leaves</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">CA</div>
+                <div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div>
+                <button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Leave Management</div><div class="topbar-subtitle">Review and manage employee leave requests</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Leave Type</th>
+                                <th>Dates Requested</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leavesTable">
+                            <tr><td colspan="6" class="text-center text-muted" style="padding:48px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="flex justify-between items-center mt-md">
+                    <button class="btn btn-ghost" onclick="changePage(-1)" id="prevBtn" disabled>Previous</button>
+                    <span id="pageInfo" class="text-sm text-muted">Page 1</span>
+                    <button class="btn btn-ghost" onclick="changePage(1)" id="nextBtn">Next</button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Approve Leave Modal (for Partial Approvals) -->
+<div class="modal" id="approveModal">
+    <div class="modal-content" style="max-width: 400px">
+        <div class="modal-header">
+            <h3 class="modal-title">Approve Leave</h3>
+            <button class="btn-icon" onclick="closeApproveModal()">✕</button>
+        </div>
+        <form id="approveForm" onsubmit="handleApprove(event)">
+            <input type="hidden" id="approve_leave_id">
+            <div class="modal-body">
+                <p class="text-sm text-muted mb-md">You can modify the approved start and end dates to grant a partial approval.</p>
+                <div class="form-group">
+                    <label class="form-label">Approved Start Date</label>
+                    <input type="date" class="form-control" name="approved_start" id="approved_start" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Approved End Date</label>
+                    <input type="date" class="form-control" name="approved_end" id="approved_end" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeApproveModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Approve Leave</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/company/leaves.js"></script>
+<script>
+    Auth.requireRole(['company_admin', 'super_admin']);
+    populateSidebarUser();
+</script>
+</body>
+</html>

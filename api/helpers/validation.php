@@ -35,6 +35,16 @@ class Validator {
         return $this;
     }
 
+    public function length(string $field, $value, int $min, int $max): self {
+        if (!empty($value)) {
+            $len = strlen($value);
+            if ($len < $min || $len > $max) {
+                $this->errors[$field] = "$field must be between $min and $max characters";
+            }
+        }
+        return $this;
+    }
+
     public function numeric(string $field, $value): self {
         if (!empty($value) && !is_numeric($value)) {
             $this->errors[$field] = "$field must be a number";

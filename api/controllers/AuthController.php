@@ -59,6 +59,7 @@ class AuthController
             'company_id' => $user['company_id'],
             'role' => $user['role'],
             'email' => $user['email'],
+            'token_version' => $user['token_version'],
             'type' => 'access'
         ], JWT_EXPIRY);
 
@@ -151,6 +152,7 @@ class AuthController
             'company_id' => $companyId,
             'role' => ROLE_COMPANY_ADMIN,
             'email' => $body['email'],
+            'token_version' => 1,
             'type' => 'access'
         ], JWT_EXPIRY);
 
@@ -255,6 +257,7 @@ class AuthController
                     'company_id' => $user['company_id'],
                     'role' => $user['role'],
                     'email' => $user['email'],
+                    'token_version' => $user['token_version'],
                     'type' => 'access'
                 ], JWT_EXPIRY);
                 Response::success(['token' => $accessToken], 'Access token refreshed (Grace)');
@@ -278,6 +281,7 @@ class AuthController
             'company_id' => $user['company_id'],
             'role' => $user['role'],
             'email' => $user['email'],
+            'token_version' => $user['token_version'],
             'type' => 'access'
         ], JWT_EXPIRY);
 

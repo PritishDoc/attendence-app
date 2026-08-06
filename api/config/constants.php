@@ -62,6 +62,7 @@ define('PLANS', [
 define('ROLE_SUPER_ADMIN', 'super_admin');
 define('ROLE_COMPANY_ADMIN', 'company_admin');
 define('ROLE_EMPLOYEE', 'employee');
+define('ROLE_MANAGER', 'manager');
 
 // Pagination
 define('DEFAULT_PAGE_SIZE', 20);

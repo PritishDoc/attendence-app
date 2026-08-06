@@ -23,6 +23,11 @@ require_once __DIR__ . '/models/Company.php';
 require_once __DIR__ . '/models/Attendance.php';
 require_once __DIR__ . '/models/Department.php';
 require_once __DIR__ . '/models/Subscription.php';
+require_once __DIR__ . '/models/Branch.php';
+require_once __DIR__ . '/models/Holiday.php';
+require_once __DIR__ . '/models/CompanySetting.php';
+require_once __DIR__ . '/models/CompanyLeavePolicy.php';
+require_once __DIR__ . '/models/CompanyDocumentType.php';
 
 // Load controllers
 require_once __DIR__ . '/controllers/AuthController.php';
@@ -32,6 +37,20 @@ require_once __DIR__ . '/controllers/AttendanceController.php';
 require_once __DIR__ . '/controllers/DepartmentController.php';
 require_once __DIR__ . '/controllers/DashboardController.php';
 require_once __DIR__ . '/controllers/TrackingController.php';
+require_once __DIR__ . '/controllers/AttendanceRequestController.php';
+require_once __DIR__ . '/controllers/LeaveController.php';
+require_once __DIR__ . '/controllers/ProfileController.php';
+require_once __DIR__ . '/controllers/TeamController.php';
+require_once __DIR__ . '/controllers/AdminEmployeeController.php';
+require_once __DIR__ . '/controllers/FileProxyController.php';
+require_once __DIR__ . '/controllers/PayrollController.php';
+require_once __DIR__ . '/controllers/DesignationController.php';
+require_once __DIR__ . '/controllers/BranchController.php';
+require_once __DIR__ . '/controllers/HolidayController.php';
+require_once __DIR__ . '/controllers/CompanySettingController.php';
+require_once __DIR__ . '/controllers/CompanyLeavePolicyController.php';
+require_once __DIR__ . '/controllers/CompanyDocumentTypeController.php';
+require_once __DIR__ . '/controllers/EmployeeDocumentController.php';
 
 // Apply CORS
 handleCors();
@@ -84,6 +103,73 @@ try {
         CompanyController::delete((int)$m[1]);
     }
 
+    // ─── Branch Routes ───
+    elseif ($uri === '/branches' && $method === 'GET') {
+        BranchController::index();
+    }
+    elseif ($uri === '/branches' && $method === 'POST') {
+        BranchController::create();
+    }
+    elseif (preg_match('/^\/branches\/(\d+)$/', $uri, $m) && $method === 'GET') {
+        BranchController::show((int)$m[1]);
+    }
+    elseif (preg_match('/^\/branches\/(\d+)$/', $uri, $m) && $method === 'PUT') {
+        BranchController::update((int)$m[1]);
+    }
+    elseif (preg_match('/^\/branches\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
+        BranchController::delete((int)$m[1]);
+    }
+
+    // ─── Holiday Routes ───
+    elseif ($uri === '/holidays' && $method === 'GET') {
+        HolidayController::index();
+    }
+    elseif ($uri === '/holidays' && $method === 'POST') {
+        HolidayController::create();
+    }
+    elseif (preg_match('/^\/holidays\/(\d+)$/', $uri, $m) && $method === 'PUT') {
+        HolidayController::update((int)$m[1]);
+    }
+    elseif (preg_match('/^\/holidays\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
+        HolidayController::delete((int)$m[1]);
+    }
+
+    // ─── Settings Routes ───
+    elseif ($uri === '/settings' && $method === 'GET') {
+        CompanySettingController::show();
+    }
+    elseif ($uri === '/settings' && $method === 'PUT') {
+        CompanySettingController::update();
+    }
+
+    // ─── Leave Policy Routes ───
+    elseif ($uri === '/leave-policies' && $method === 'GET') {
+        CompanyLeavePolicyController::index();
+    }
+    elseif ($uri === '/leave-policies' && $method === 'POST') {
+        CompanyLeavePolicyController::create();
+    }
+    elseif (preg_match('/^\/leave-policies\/(\d+)$/', $uri, $m) && $method === 'PUT') {
+        CompanyLeavePolicyController::update((int)$m[1]);
+    }
+    elseif (preg_match('/^\/leave-policies\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
+        CompanyLeavePolicyController::delete((int)$m[1]);
+    }
+
+    // ─── Document Types Routes ───
+    elseif ($uri === '/document-types' && $method === 'GET') {
+        CompanyDocumentTypeController::index();
+    }
+    elseif ($uri === '/document-types' && $method === 'POST') {
+        CompanyDocumentTypeController::create();
+    }
+    elseif (preg_match('/^\/document-types\/(\d+)$/', $uri, $m) && $method === 'PUT') {
+        CompanyDocumentTypeController::update((int)$m[1]);
+    }
+    elseif (preg_match('/^\/document-types\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
+        CompanyDocumentTypeController::delete((int)$m[1]);
+    }
+
     // ─── Employee Routes ───
     elseif ($uri === '/employees' && $method === 'GET') {
         EmployeeController::index();
@@ -102,6 +188,12 @@ try {
     }
     elseif (preg_match('/^\/employees\/(\d+)\/reset-device$/', $uri, $m) && $method === 'POST') {
         EmployeeController::resetDevice((int)$m[1]);
+    }
+    elseif (preg_match('/^\/employees\/(\d+)\/activate$/', $uri, $m) && $method === 'PATCH') {
+        EmployeeController::activate((int)$m[1]);
+    }
+    elseif (preg_match('/^\/employees\/(\d+)\/deactivate$/', $uri, $m) && $method === 'PATCH') {
+        EmployeeController::deactivate((int)$m[1]);
     }
 
     // ─── Attendance Routes ───
@@ -123,6 +215,73 @@ try {
     elseif ($uri === '/attendance/status' && $method === 'GET') {
         AttendanceController::status();
     }
+    elseif ($uri === '/attendance/my-history/daily' && $method === 'GET') {
+        AttendanceController::myDailyHistory();
+    }
+    elseif ($uri === '/attendance/my-history/weekly' && $method === 'GET') {
+        AttendanceController::myWeeklyHistory();
+    }
+    elseif ($uri === '/attendance/my-history/monthly' && $method === 'GET') {
+        AttendanceController::myMonthlyHistory();
+    }
+    elseif ($uri === '/attendance/my-summary/hours' && $method === 'GET') {
+        AttendanceController::myMonthlyHours();
+    }
+    elseif ($uri === '/attendance/my-summary/export' && $method === 'GET') {
+        AttendanceController::exportMySummary();
+    }
+    elseif ($uri === '/attendance/date-info' && $method === 'GET') {
+        AttendanceRequestController::getDateInfo();
+    }
+    
+    // ─── Attendance Requests Routes ───
+    elseif ($uri === '/attendance-requests/my-requests' && $method === 'GET') {
+        AttendanceRequestController::myRequests();
+    }
+    elseif ($uri === '/attendance-requests/wfh' && $method === 'POST') {
+        AttendanceRequestController::applyWfh();
+    }
+    elseif ($uri === '/attendance-requests/outdoor' && $method === 'POST') {
+        AttendanceRequestController::applyOutdoor();
+    }
+    elseif ($uri === '/attendance-requests/time-correction' && $method === 'POST') {
+        AttendanceRequestController::applyTimeCorrection();
+    }
+    elseif ($uri === '/attendance-requests/status-correction' && $method === 'POST') {
+        AttendanceRequestController::applyStatusCorrection();
+    }
+    elseif ($uri === '/attendance-requests/admin/all' && $method === 'GET') {
+        AttendanceRequestController::adminAllRequests();
+    }
+    elseif (preg_match('#^/attendance-requests/admin/approve/(\d+)$#', $uri, $matches) && $method === 'POST') {
+        AttendanceRequestController::adminApprove((int)$matches[1]);
+    }
+    elseif (preg_match('#^/attendance-requests/admin/reject/(\d+)$#', $uri, $matches) && $method === 'POST') {
+        AttendanceRequestController::adminReject((int)$matches[1]);
+    }
+
+    // ─── Leave Routes ───
+    elseif ($uri === '/leaves/apply' && $method === 'POST') {
+        LeaveController::apply();
+    }
+    elseif ($uri === '/leaves/history' && $method === 'GET') {
+        LeaveController::myHistory();
+    }
+    elseif ($uri === '/leaves/balances' && $method === 'GET') {
+        LeaveController::myBalances();
+    }
+    elseif ($uri === '/leaves/admin/all' && $method === 'GET') {
+        LeaveController::adminAll();
+    }
+    elseif (preg_match('#^/leaves/(\d+)/cancel$#', $uri, $m) && $method === 'POST') {
+        LeaveController::cancel((int)$m[1]);
+    }
+    elseif (preg_match('#^/leaves/(\d+)/status$#', $uri, $m) && $method === 'PUT') {
+        LeaveController::updateStatus((int)$m[1]);
+    }
+    elseif (preg_match('#^/leaves/(\d+)$#', $uri, $m) && $method === 'DELETE') {
+        LeaveController::delete((int)$m[1]);
+    }
 
     // ─── Tracking Routes ───
     elseif ($uri === '/tracking/log' && $method === 'POST') {
@@ -135,6 +294,111 @@ try {
         TrackingController::getEmployeeHistory((int)$m[1]);
     }
 
+    // ─── Profile Routes ───
+    elseif ($uri === '/profile/address' && $method === 'GET') {
+        ProfileController::getAddress();
+    }
+    elseif ($uri === '/profile/address' && $method === 'POST') {
+        ProfileController::createAddress();
+    }
+    elseif (preg_match('#^/profile/address/([a-f0-9\-]+)$#', $uri, $m) && $method === 'PUT') {
+        ProfileController::updateAddress($m[1]);
+    }
+    elseif (preg_match('#^/profile/address/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
+        ProfileController::deleteAddress($m[1]);
+    }
+    elseif ($uri === '/profile/experience' && $method === 'GET') {
+        ProfileController::getExperience();
+    }
+    elseif ($uri === '/profile/experience' && $method === 'POST') {
+        ProfileController::createExperience();
+    }
+    elseif (preg_match('#^/profile/experience/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
+        ProfileController::deleteExperience($m[1]);
+    }
+    elseif ($uri === '/profile/education' && $method === 'GET') {
+        ProfileController::getEducation();
+    }
+    elseif ($uri === '/profile/education' && $method === 'POST') {
+        ProfileController::createEducation();
+    }
+    elseif (preg_match('#^/profile/education/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
+        ProfileController::deleteEducation($m[1]);
+    }
+    elseif ($uri === '/profile/family' && $method === 'GET') {
+        ProfileController::getFamily();
+    }
+    elseif ($uri === '/profile/family' && $method === 'POST') {
+        ProfileController::createFamily();
+    }
+    elseif (preg_match('#^/profile/family/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
+        ProfileController::deleteFamily($m[1]);
+    }
+
+    // ─── Team Routes ───
+    elseif ($uri === '/team' && $method === 'GET') {
+        TeamController::getTeam();
+    }
+    elseif ($uri === '/team/structure' && $method === 'GET') {
+        TeamController::getStructure();
+    }
+
+    // ─── Admin Employee Routes ───
+    elseif (preg_match('#^/admin/employees/(\d+)/joining-details$#', $uri, $m) && $method === 'PUT') {
+        AdminEmployeeController::updateJoiningDetails((int)$m[1]);
+    }
+    elseif (preg_match('#^/admin/employees/(\d+)/joining-details$#', $uri, $m) && $method === 'GET') {
+        AdminEmployeeController::getJoiningDetails((int)$m[1]);
+    }
+    elseif (preg_match('#^/admin/employees/(\d+)/documents$#', $uri, $m) && $method === 'GET') {
+        EmployeeDocumentController::list((int)$m[1]);
+    }
+    elseif (preg_match('#^/admin/employees/(\d+)/documents$#', $uri, $m) && $method === 'POST') {
+        EmployeeDocumentController::upload((int)$m[1]);
+    }
+    elseif (preg_match('#^/admin/employees/documents/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
+        EmployeeDocumentController::delete($m[1]);
+    }
+
+    // ─── File Proxy ───
+    elseif (preg_match('#^/files/([a-f0-9\-]+)$#', $uri, $m) && $method === 'GET') {
+        FileProxyController::getFile($m[1]);
+    }
+
+
+    // ─── Payroll Routes ───
+    elseif (preg_match('#^/payroll/structure/(\d+)$#', $uri, $m) && $method === 'GET') {
+        PayrollController::getStructure((int)$m[1]);
+    }
+    elseif (preg_match('#^/payroll/structure/(\d+)$#', $uri, $m) && $method === 'POST') {
+        PayrollController::saveStructure((int)$m[1]);
+    }
+    elseif ($uri === '/payroll/generate-payslip' && $method === 'POST') {
+        PayrollController::generatePayslip();
+    }
+    elseif (preg_match('#^/payroll/payslips/(\d+)$#', $uri, $m) && $method === 'GET') {
+        PayrollController::viewPayslips((int)$m[1]);
+    }
+    elseif (preg_match('#^/payroll/payslip/(\d+)$#', $uri, $m) && $method === 'GET') {
+        PayrollController::getSinglePayslip((int)$m[1]);
+    }
+    elseif ($uri === '/my/payslips' && $method === 'GET') {
+        PayrollController::myPayslips();
+    }
+
+    // ─── Designation Routes ───
+    elseif ($uri === '/designations' && $method === 'GET') {
+        DesignationController::index();
+    }
+    elseif ($uri === '/designations' && $method === 'POST') {
+        DesignationController::create();
+    }
+    elseif (preg_match('/^\/designations\/(\d+)$/', $uri, $m) && $method === 'PUT') {
+        DesignationController::update((int)$m[1]);
+    }
+    elseif (preg_match('/^\/designations\/(\d+)$/', $uri, $m) && $method === 'DELETE') {
+        DesignationController::delete((int)$m[1]);
+    }
 
     // ─── Department Routes ───
     elseif ($uri === '/departments' && $method === 'GET') {
@@ -159,6 +423,12 @@ try {
     }
     elseif ($uri === '/dashboard/employee' && $method === 'GET') {
         DashboardController::employee();
+    }
+    elseif ($uri === '/dashboard/company/absent-today' && $method === 'GET') {
+        DashboardController::absentToday();
+    }
+    elseif ($uri === '/dashboard/company/leave-trends' && $method === 'GET') {
+        DashboardController::leaveTrends();
     }
 
     // ─── Health Check ───

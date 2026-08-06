@@ -18,6 +18,51 @@ class AttendanceController {
         $existing = $attendanceModel->findTodayByEmployee($auth['user_id']);
         if ($existing) Response::error('Already checked in today', 409);
 
+        // 🚨 Prevent Check-in on Approved Leave Day
+        $db = Database::getInstance()->getConnection();
+        $todayStr = date('Y-m-d');
+        $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?");
+        $leaveStmt->execute([$auth['user_id'], $todayStr, $todayStr]);
+        if ($leaveStmt->fetch()) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'blocked' => true,
+                'type' => 'leave',
+                'message' => 'Cannot check in on an approved leave day'
+            ]);
+            exit;
+        }
+
+        // 🚨 Prevent Check-in on Approved WFH/Outdoor, and Warn on Pending
+        $reqStmt = $db->prepare("
+            SELECT id, request_type, status FROM attendance_requests 
+            WHERE employee_id = ? 
+            AND request_type IN ('wfh', 'outdoor') 
+            AND status IN ('pending', 'approved')
+            AND deleted_at IS NULL
+            AND (start_date <= ? AND COALESCE(end_date, start_date) >= ?)
+        ");
+        $reqStmt->execute([$auth['user_id'], $todayStr, $todayStr]);
+        $activeReq = $reqStmt->fetch();
+        
+        $warningMessage = null;
+        if ($activeReq) {
+            if ($activeReq['status'] === 'approved') {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'blocked' => true,
+                    'type' => $activeReq['request_type'],
+                    'message' => strtoupper($activeReq['request_type']) . ' is approved for today',
+                    'request_id' => $activeReq['id']
+                ]);
+                exit;
+            } else {
+                $warningMessage = "You have a pending " . $activeReq['request_type'] . " request for today.";
+            }
+        }
+
         $status = 'present';
 
         // Office attendance — verify GPS radius
@@ -57,11 +102,17 @@ class AttendanceController {
             'selfie_data' => $body['selfie_data'] ?? null
         ]);
 
-        Response::success([
+        $responsePayload = [
             'attendance_id' => $id,
             'status' => $status,
             'checkin_time' => date('Y-m-d H:i:s')
-        ], $status === 'late' ? 'Checked in (Late)' : 'Checked in successfully', 201);
+        ];
+        
+        if ($warningMessage) {
+            $responsePayload['warning'] = $warningMessage;
+        }
+
+        Response::success($responsePayload, $status === 'late' ? 'Checked in (Late)' : 'Checked in successfully', 201);
     }
 
     public static function checkout(): void {
@@ -131,5 +182,203 @@ class AttendanceController {
             'checked_out' => $today && $today['checkout_time'] ? true : false,
             'record'      => $today
         ]);
+    }
+
+    private static function getEmployeeHistoryWithLeaves(int $employeeId, string $startDate, string $endDate): array {
+        $db = Database::getInstance()->getConnection();
+        
+        // 1. Fetch Leaves
+        $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?");
+        $leaveStmt->execute([$employeeId, $endDate, $startDate]);
+        $leaves = $leaveStmt->fetchAll();
+        
+        // 2. Fetch Attendance
+        $attStmt = $db->prepare("SELECT * FROM attendance WHERE employee_id = ? AND date BETWEEN ? AND ?");
+        $attStmt->execute([$employeeId, $startDate, $endDate]);
+        $attendances = $attStmt->fetchAll();
+        
+        // Map attendance by date
+        $attMap = [];
+        foreach ($attendances as $att) {
+            $attMap[$att['date']] = $att;
+        }
+        
+        // Map leaves by date
+        $leaveMap = [];
+        foreach ($leaves as $leave) {
+            $currDate = max($leave['start_date'], $startDate);
+            $lastDate = min($leave['end_date'], $endDate);
+            
+            $current = new DateTime($currDate);
+            $last = new DateTime($lastDate);
+            
+            while ($current <= $last) {
+                $leaveMap[$current->format('Y-m-d')] = $leave;
+                $current->modify('+1 day');
+            }
+        }
+        
+        $history = [];
+        $current = new DateTime($startDate);
+        $last = new DateTime($endDate);
+        
+        while ($current <= $last) {
+            $dateStr = $current->format('Y-m-d');
+            
+            $record = [
+                'date' => $dateStr,
+                'status' => 'absent',
+                'leave_type' => null,
+                'leave_duration' => null,
+                'attendance_data' => null
+            ];
+            
+            if (isset($leaveMap[$dateStr])) {
+                $record['status'] = 'leave';
+                $record['leave_type'] = $leaveMap[$dateStr]['leave_type'];
+                $record['leave_duration'] = $leaveMap[$dateStr]['leave_duration'];
+                // optionally attach attendance data if they checked in anyway
+                if (isset($attMap[$dateStr])) {
+                    $record['attendance_data'] = $attMap[$dateStr];
+                }
+            } else if (isset($attMap[$dateStr])) {
+                $record['status'] = $attMap[$dateStr]['status'];
+                $record['attendance_data'] = $attMap[$dateStr];
+            }
+            
+            $history[] = $record;
+            $current->modify('+1 day');
+        }
+        
+        return $history;
+    }
+
+    public static function myDailyHistory(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $date = $_GET['date'] ?? date('Y-m-d');
+        
+        $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $date, $date);
+        $record = $history[0];
+        
+        $db = Database::getInstance()->getConnection();
+        $locStmt = $db->prepare("SELECT latitude, longitude, timestamp FROM live_tracking WHERE employee_id = ? AND DATE(timestamp) = ? ORDER BY timestamp ASC");
+        $locStmt->execute([$auth['user_id'], $date]);
+        $locations = $locStmt->fetchAll();
+        
+        if ($record['status'] === 'outdoor' && count($locations) < 2) {
+            $record['outdoor_warning'] = 'Insufficient tracking data for outdoor duty.';
+        }
+        
+        $record['locations'] = $locations;
+        Response::success($record);
+    }
+
+    public static function myWeeklyHistory(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $endDate = date('Y-m-d');
+        $startDate = date('Y-m-d', strtotime('-6 days'));
+        
+        $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $startDate, $endDate);
+        Response::success($history);
+    }
+
+    public static function myMonthlyHistory(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $year = $_GET['year'] ?? date('Y');
+        $month = $_GET['month'] ?? date('m');
+        
+        $startDate = "$year-$month-01";
+        $endDate = date('Y-m-t', strtotime($startDate));
+        
+        $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $startDate, $endDate);
+        Response::success($history);
+    }
+
+    public static function myMonthlyHours(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $year = $_GET['year'] ?? date('Y');
+        $month = $_GET['month'] ?? date('m');
+        
+        $startDate = "$year-$month-01";
+        $endDate = date('Y-m-t', strtotime($startDate));
+        
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT SUM(total_hours) as total FROM attendance WHERE employee_id = ? AND date BETWEEN ? AND ?");
+        $stmt->execute([$auth['user_id'], $startDate, $endDate]);
+        $result = $stmt->fetch();
+        
+        Response::success(['total_working_hours' => $result['total'] ?? 0]);
+    }
+
+    public static function exportMySummary(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $year = $_GET['year'] ?? date('Y');
+        $month = $_GET['month'] ?? date('m');
+        
+        $startDate = "$year-$month-01";
+        $endDate = date('Y-m-t', strtotime($startDate));
+        
+        $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $startDate, $endDate);
+        
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT SUM(total_hours) as total FROM attendance WHERE employee_id = ? AND date BETWEEN ? AND ?");
+        $stmt->execute([$auth['user_id'], $startDate, $endDate]);
+        $hoursRes = $stmt->fetch();
+        $totalHours = $hoursRes['total'] ?? 0;
+        
+        // Aggregate leaves
+        $leaveCounts = ['CL'=>0, 'SL'=>0, 'CO'=>0, 'LOP'=>0, 'EL'=>0, 'ML'=>0];
+        
+        foreach ($history as $day) {
+            if ($day['status'] === 'leave' && isset($day['leave_type'])) {
+                $type = $day['leave_type'];
+                $dur = $day['leave_duration'] ?? 'full_day';
+                $val = ($dur === 'full_day') ? 1 : 0.5;
+                if (isset($leaveCounts[$type])) {
+                    $leaveCounts[$type] += $val;
+                }
+            }
+        }
+        
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="Attendance_Summary_' . $year . '_' . $month . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        
+        fputcsv($output, ['Attendance Summary', "$year-$month"]);
+        fputcsv($output, ['Total Working Hours', $totalHours]);
+        fputcsv($output, []);
+        
+        fputcsv($output, ['Leave Balances/Counts']);
+        foreach ($leaveCounts as $type => $count) {
+            fputcsv($output, [$type, $count]);
+        }
+        fputcsv($output, []);
+        
+        fputcsv($output, ['Date', 'Status', 'Leave Type', 'Duration', 'Check-in', 'Check-out', 'Hours']);
+        
+        foreach ($history as $day) {
+            $checkin = $day['attendance_data']['checkin_time'] ?? '';
+            $checkout = $day['attendance_data']['checkout_time'] ?? '';
+            $hours = $day['attendance_data']['total_hours'] ?? '';
+            
+            fputcsv($output, [
+                $day['date'],
+                $day['status'],
+                $day['leave_type'] ?? '',
+                $day['leave_duration'] ?? '',
+                $checkin,
+                $checkout,
+                $hours
+            ]);
+        }
+        
+        fclose($output);
+        exit;
     }
 }

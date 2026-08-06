@@ -78,4 +78,68 @@ class DashboardController {
             'this_week'   => $stmt2->fetchAll()
         ]);
     }
+
+    public static function absentToday(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_COMPANY_ADMIN]);
+        $companyId = $auth['company_id'];
+        
+        $db = Database::getInstance()->getConnection();
+        // Get all active employees who do NOT have a presence record today
+        // Or who have an explicit absent/leave record.
+        $stmt = $db->prepare("
+            SELECT u.id, u.name, u.email, u.phone, u.employee_id_code, d.name as department_name, ds.name as designation_name
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN designations ds ON u.designation_id = ds.id
+            WHERE u.company_id = ? AND u.role = 'employee' AND u.status = 'active'
+            AND u.id NOT IN (
+                SELECT employee_id FROM attendance 
+                WHERE company_id = ? AND date = CURDATE() AND status IN ('present', 'late', 'half_day', 'wfh', 'outdoor')
+            )
+            AND u.id NOT IN (
+                SELECT employee_id FROM leaves
+                WHERE company_id = ? AND status = 'approved' AND CURDATE() BETWEEN approved_start_date AND approved_end_date
+            )
+        ");
+        $stmt->execute([$companyId, $companyId, $companyId]);
+        $absentUsers = $stmt->fetchAll();
+        
+        Response::success($absentUsers);
+    }
+
+    public static function leaveTrends(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_COMPANY_ADMIN]);
+        $companyId = $auth['company_id'];
+        
+        $db = Database::getInstance()->getConnection();
+        
+        // Currently on leave (approved leaves covering today)
+        $stmtOnLeave = $db->prepare("
+            SELECT COUNT(DISTINCT employee_id) FROM leaves 
+            WHERE company_id = ? AND status = 'approved' 
+            AND CURDATE() BETWEEN approved_start_date AND approved_end_date
+        ");
+        $stmtOnLeave->execute([$companyId]);
+        $currentlyOnLeave = (int) $stmtOnLeave->fetchColumn();
+        
+        // Upcoming leaves (approved leaves starting in the future)
+        $stmtUpcoming = $db->prepare("
+            SELECT l.id, l.leave_type, l.approved_start_date, l.approved_end_date, u.name as employee_name
+            FROM leaves l
+            JOIN users u ON l.employee_id = u.id
+            WHERE l.company_id = ? AND l.status = 'approved'
+            AND l.approved_start_date > CURDATE()
+            ORDER BY l.approved_start_date ASC
+            LIMIT 10
+        ");
+        $stmtUpcoming->execute([$companyId]);
+        $upcomingLeaves = $stmtUpcoming->fetchAll();
+        
+        Response::success([
+            'currently_on_leave' => $currentlyOnLeave,
+            'upcoming_leaves' => $upcomingLeaves
+        ]);
+    }
 }

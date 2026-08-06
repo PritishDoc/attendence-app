@@ -18,9 +18,14 @@
                 <a href="employees.html" class="nav-item active"><span class="nav-icon">👥</span> Employees</a>
                 <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
                 <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
                 <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
             </div>
-            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a></div>
+            <div class="nav-section"><div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
         </nav>
         <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
     </aside>
@@ -82,8 +87,12 @@
                 <div class="form-group"><label class="form-label">Phone</label><input type="tel" name="phone" id="empPhone" class="form-control"></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div class="form-group"><label class="form-label">Department</label><select name="department" id="empDept" class="form-control form-select"><option value="">Select</option></select></div>
-                <div class="form-group"><label class="form-label">Designation</label><input type="text" name="designation" id="empDesignation" class="form-control"></div>
+                <div class="form-group"><label class="form-label">Department</label><select id="empDept" class="form-control form-select"><option value="">Select</option></select></div>
+                <div class="form-group"><label class="form-label">Designation</label><select id="empDesignation" class="form-control form-select"><option value="">Select</option></select></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group"><label class="form-label">Branch</label><select id="empBranch" class="form-control form-select"><option value="">Select</option></select></div>
+                <div class="form-group"><label class="form-label">Direct Manager</label><select id="empManager" class="form-control form-select"><option value="">No Manager (Root)</option></select></div>
             </div>
             <div class="form-group" id="passwordGroup"><label class="form-label">Password *</label><input type="password" name="password" id="empPassword" class="form-control" minlength="6"></div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('addEmployeeModal')">Cancel</button><button type="submit" class="btn btn-primary" id="saveBtn">Add Employee</button></div>
@@ -103,10 +112,40 @@
     async function loadDepartments() {
         try {
             const res = await api.get('/departments');
-            if (res.success) {
-                const opts = res.data.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-                document.getElementById('deptFilter').innerHTML = '<option value="">All Departments</option>' + opts;
-                document.getElementById('empDept').innerHTML = '<option value="">Select</option>' + opts;
+            if (res.success && res.data) {
+                const filterOpts = res.data.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                document.getElementById('deptFilter').innerHTML = '<option value="">All Departments</option>' + filterOpts;
+                document.getElementById('empDept').innerHTML = '<option value="">Select</option>' + filterOpts;
+            }
+        } catch(e) {}
+    }
+
+    async function loadDesignations() {
+        try {
+            const res = await api.get('/designations');
+            if (res.success && res.data) {
+                const opts = res.data.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                document.getElementById('empDesignation').innerHTML = '<option value="">Select</option>' + opts;
+            }
+        } catch(e) {}
+    }
+
+    async function loadBranches() {
+        try {
+            const res = await api.get('/branches');
+            if (res.success && res.data) {
+                const opts = res.data.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                document.getElementById('empBranch').innerHTML = '<option value="">Select</option>' + opts;
+            }
+        } catch(e) {}
+    }
+
+    async function loadManagers() {
+        try {
+            const res = await api.get('/employees?per_page=1000&status=active');
+            if (res.success && res.data) {
+                const opts = res.data.map(e => `<option value="${e.id}">${e.name} (${e.email})</option>`).join('');
+                document.getElementById('empManager').innerHTML = '<option value="">No Manager (Root)</option>' + opts;
             }
         } catch(e) {}
     }
@@ -129,10 +168,10 @@
                     <tr>
                         <td><div class="flex items-center gap-sm"><div class="avatar avatar-sm">${getInitials(e.name)}</div><div><div class="font-medium">${e.name}</div><div class="text-sm text-muted">${e.email}</div></div></div></td>
                         <td><span class="text-sm font-medium">${e.employee_id_code || '—'}</span></td>
-                        <td>${e.department || '—'}</td>
+                        <td>${e.department || '—'}<br><span class="text-xs text-muted">${e.branch || 'No Branch'}</span></td>
                         <td class="text-sm">${e.designation || '—'}</td>
                         <td>${statusBadge(e.status)}</td>
-                        <td><div class="flex gap-sm"><button class="btn btn-ghost btn-sm" onclick="editEmployee(${e.id})">✏️</button><button class="btn btn-ghost btn-sm" onclick="resetDevice(${e.id},'${e.name}')" title="Reset Bound Device signature">🔓</button><button class="btn btn-ghost btn-sm" onclick="deleteEmployee(${e.id},'${e.name}')">🗑️</button></div></td>
+                        <td><div class="flex gap-sm"><a href="employee-profile.html?id=${e.id}" class="btn btn-ghost btn-sm" title="Manage Profile">👤</a><button class="btn btn-ghost btn-sm" onclick="editEmployee(${e.id})" title="Edit Details">✏️</button><button class="btn btn-ghost btn-sm" onclick="resetDevice(${e.id},'${encodeURIComponent(e.name)}')" title="Reset Bound Device signature">🔓</button><button class="btn btn-ghost btn-sm" onclick="deleteEmployee(${e.id},'${encodeURIComponent(e.name)}')">🗑️</button></div></td>
                     </tr>
                 `).join('');
                 document.getElementById('paginationInfo').textContent = `Showing ${res.data.length} of ${res.pagination.total} employees`;
@@ -150,10 +189,17 @@
         const data = {
             name: document.getElementById('empName').value,
             email: document.getElementById('empEmail').value,
-            phone: document.getElementById('empPhone').value,
-            department: document.getElementById('empDept').value,
-            designation: document.getElementById('empDesignation').value
+            phone: document.getElementById('empPhone').value
         };
+        const deptId = document.getElementById('empDept').value;
+        const desigId = document.getElementById('empDesignation').value;
+        const mgrId = document.getElementById('empManager').value;
+        const branchId = document.getElementById('empBranch').value;
+        
+        if (deptId) data.department_id = parseInt(deptId);
+        if (desigId) data.designation_id = parseInt(desigId);
+        if (mgrId) data.manager_id = parseInt(mgrId);
+        if (branchId) data.branch_id = parseInt(branchId);
         const pw = document.getElementById('empPassword').value;
         if (pw) data.password = pw;
 
@@ -180,8 +226,10 @@
                 document.getElementById('empName').value = e.name;
                 document.getElementById('empEmail').value = e.email;
                 document.getElementById('empPhone').value = e.phone || '';
-                document.getElementById('empDept').value = e.department || '';
-                document.getElementById('empDesignation').value = e.designation || '';
+                document.getElementById('empDept').value = e.department_id || '';
+                document.getElementById('empDesignation').value = e.designation_id || '';
+                document.getElementById('empManager').value = e.manager_id || '';
+                document.getElementById('empBranch').value = e.branch_id || '';
                 document.getElementById('empPassword').value = '';
                 document.getElementById('empPassword').removeAttribute('required');
                 document.getElementById('modalTitle').textContent = 'Edit Employee';
@@ -192,7 +240,8 @@
     }
 
     async function deleteEmployee(id, name) {
-        if (!confirmAction(`Delete employee "${name}"? This cannot be undone.`)) return;
+        const decodedName = decodeURIComponent(name);
+        if (!confirmAction(`Delete employee "${decodedName}"? This cannot be undone.`)) return;
         try {
             await api.delete(`/employees/${id}`);
             showToast('Employee deleted', 'success');
@@ -201,7 +250,8 @@
     }
 
     async function resetDevice(id, name) {
-        if (!confirmAction(`Reset device lock for employee "${name}"? They will be allowed to bind a new device on their next login.`)) return;
+        const decodedName = decodeURIComponent(name);
+        if (!confirmAction(`Reset device lock for employee "${decodedName}"? They will be allowed to bind a new device on their next login.`)) return;
         try {
             await api.post(`/employees/${id}/reset-device`);
             showToast('Device lock reset successfully', 'success');
@@ -224,6 +274,9 @@
     document.getElementById('statusFilter').addEventListener('change', () => loadEmployees(1));
 
     loadDepartments();
+    loadDesignations();
+    loadBranches();
+    loadManagers();
     loadEmployees();
 </script>
 </body>
