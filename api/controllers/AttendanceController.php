@@ -34,7 +34,7 @@ class AttendanceController {
             exit;
         }
 
-        // 🚨 Prevent Check-in on Approved WFH/Outdoor, and Warn on Pending
+        // Fetch active WFH/Outdoor requests
         $reqStmt = $db->prepare("
             SELECT id, request_type, status FROM attendance_requests 
             WHERE employee_id = ? 
@@ -47,18 +47,16 @@ class AttendanceController {
         $activeReq = $reqStmt->fetch();
         
         $warningMessage = null;
-        if ($activeReq) {
-            if ($activeReq['status'] === 'approved') {
-                http_response_code(403);
-                echo json_encode([
-                    'success' => false,
-                    'blocked' => true,
-                    'type' => $activeReq['request_type'],
-                    'message' => strtoupper($activeReq['request_type']) . ' is approved for today',
-                    'request_id' => $activeReq['id']
-                ]);
-                exit;
-            } else {
+        
+        // 🚨 Require Approved Request for WFH/Outdoor check-ins
+        if ($type === 'wfh' || $type === 'outdoor') {
+            if (!$activeReq || $activeReq['status'] !== 'approved' || $activeReq['request_type'] !== $type) {
+                $typeName = strtoupper($type);
+                Response::error("You do not have an approved $typeName request for today. Please login from the office.", 403);
+            }
+        } else {
+            // If they are checking in as office, warn them if they have a pending request
+            if ($activeReq && $activeReq['status'] === 'pending') {
                 $warningMessage = "You have a pending " . $activeReq['request_type'] . " request for today.";
             }
         }
@@ -66,7 +64,11 @@ class AttendanceController {
         $status = 'present';
 
         // Office attendance — verify GPS radius
-        if ($type === 'office' && $lat && $lng) {
+        if ($type === 'office') {
+            if (!$lat || !$lng) {
+                Response::error("Location data is required for office check-ins.", 400);
+            }
+            
             $companyModel = new Company();
             $company = $companyModel->findById($auth['company_id']);
             if ($company['office_latitude'] && $company['office_longitude']) {

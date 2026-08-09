@@ -343,28 +343,13 @@ class AttendanceRequestController {
                 $datesApplied = [];
                 
                 while ($curr <= $end) {
-                    $d = $curr->format('Y-m-d');
-                    // Check if exists
-                    $cStmt = $db->prepare("SELECT id, status FROM attendance WHERE employee_id = ? AND date = ?");
-                    $cStmt->execute([$req['employee_id'], $d]);
-                    $att = $cStmt->fetch();
-                    
-                    if ($att) {
-                        if ($att['status'] !== 'leave') {
-                            $uStmt = $db->prepare("UPDATE attendance SET status = ?, source = 'system_correction' WHERE id = ?");
-                            $uStmt->execute([$statusApp, $att['id']]);
-                        }
-                    } else {
-                        $iStmt = $db->prepare("INSERT INTO attendance (employee_id, company_id, date, status, attendance_type, source) VALUES (?, ?, ?, ?, 'office', 'system_correction')");
-                        $iStmt->execute([$req['employee_id'], $req['company_id'], $d, $statusApp]);
-                    }
-                    $datesApplied[] = $d;
+                    $datesApplied[] = $curr->format('Y-m-d');
                     $curr->modify('+1 day');
                 }
                 $appliedData = [
                     'type' => $statusApp,
                     'dates' => $datesApplied,
-                    'status_applied' => $statusApp
+                    'status_applied' => 'pending_checkin' // Attendance created via daily checkin
                 ];
             }
             elseif ($req['request_type'] === 'time_correction') {
