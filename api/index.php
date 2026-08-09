@@ -445,6 +445,6 @@ try {
     else {
         Response::error('Endpoint not found', 404);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     Response::error('Internal server error: ' . $e->getMessage(), 500);
 }

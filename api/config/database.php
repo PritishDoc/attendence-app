@@ -8,15 +8,18 @@ class Database {
     private static $instance = null;
     private $connection;
 
-    private $host = '193.203.184.197';
     private $db_name = 'u527069138_attendify';
     private $username = 'u527069138_attendify';
     private $password = '$#84Zxu7J';
     private $charset = 'utf8mb4';
 
     private function __construct() {
+        // Use remote IP for local development, and localhost for the production server
+        $isLocal = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        $host = $isLocal ? '193.203.184.197' : 'localhost';
+
         try {
-            $dsn = "mysql:host={$this->host};dbname={$this->db_name};charset={$this->charset}";
+            $dsn = "mysql:host={$host};dbname={$this->db_name};charset={$this->charset}";
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
