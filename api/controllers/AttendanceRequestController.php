@@ -275,14 +275,50 @@ class AttendanceRequestController {
         $auth = authenticate();
         requireRole($auth, [ROLE_COMPANY_ADMIN, ROLE_SUPER_ADMIN]);
         
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("UPDATE attendance_requests SET status = 'rejected', approved_by = ?, approved_at = NOW() WHERE id = ? AND status = 'pending' AND deleted_at IS NULL");
-        $stmt->execute([$auth['user_id'], $id]);
+        $body = getRequestBody();
+        $overrideTimeOut = $body['override_time_out'] ?? null;
         
-        if ($stmt->rowCount() === 0) {
-            Response::error('Request not found or already processed', 400);
+        $db = Database::getInstance()->getConnection();
+        $db->beginTransaction();
+        
+        try {
+            $stmt = $db->prepare("SELECT * FROM attendance_requests WHERE id = ? FOR UPDATE");
+            $stmt->execute([$id]);
+            $req = $stmt->fetch();
+            
+            if (!$req || $req['status'] !== 'pending' || $req['deleted_at'] !== null) {
+                throw new Exception('Request not found or already processed', 400);
+            }
+            if ($auth['role'] === ROLE_COMPANY_ADMIN && $req['company_id'] !== $auth['company_id']) {
+                throw new Exception('Forbidden', 403);
+            }
+
+            $uReq = $db->prepare("UPDATE attendance_requests SET status = 'rejected', approved_by = ?, approved_at = NOW() WHERE id = ? AND status = 'pending'");
+            $uReq->execute([$auth['user_id'], $id]);
+            
+            if ($req['request_type'] === 'out_of_bounds_checkout' && $overrideTimeOut) {
+                $d = $req['start_date'];
+                $cStmt = $db->prepare("SELECT id, checkin_time FROM attendance WHERE employee_id = ? AND date = ?");
+                $cStmt->execute([$req['employee_id'], $d]);
+                $att = $cStmt->fetch();
+                
+                if ($att) {
+                    $totalHours = null;
+                    if ($att['checkin_time'] && $overrideTimeOut) {
+                        $totalHours = round((strtotime($overrideTimeOut) - strtotime($att['checkin_time'])) / 3600, 2);
+                    }
+                    $uStmt = $db->prepare("UPDATE attendance SET checkout_time = ?, total_hours = ?, source = 'manager_override' WHERE id = ?");
+                    $uStmt->execute([$overrideTimeOut, $totalHours, $att['id']]);
+                }
+            }
+            
+            $db->commit();
+            Response::success(null, 'Request rejected');
+        } catch (Exception $e) {
+            $db->rollBack();
+            $code = $e->getCode() ?: 500;
+            Response::error($e->getMessage(), $code === 400 || $code === 403 || $code === 409 ? $code : 500);
         }
-        Response::success(null, 'Request rejected');
     }
 
     public static function adminApprove(int $id): void {
@@ -394,6 +430,36 @@ class AttendanceRequestController {
                     'type' => 'status_correction',
                     'date' => $d,
                     'status_applied' => $req['corrected_status']
+                ];
+            }
+            elseif ($req['request_type'] === 'out_of_bounds_checkout') {
+                $d = $req['start_date'];
+                $cStmt = $db->prepare("SELECT id, checkin_time FROM attendance WHERE employee_id = ? AND date = ?");
+                $cStmt->execute([$req['employee_id'], $d]);
+                $att = $cStmt->fetch();
+                
+                if ($att) {
+                    $totalHours = null;
+                    if ($att['checkin_time'] && $req['time_out']) {
+                        $totalHours = round((strtotime($req['time_out']) - strtotime($att['checkin_time'])) / 3600, 2);
+                    }
+                    
+                    $locData = json_decode($req['reason'], true);
+                    $lat = $locData['latitude'] ?? null;
+                    $lng = $locData['longitude'] ?? null;
+                    
+                    if ($lat && $lng) {
+                        $uStmt = $db->prepare("UPDATE attendance SET checkout_time = ?, checkout_latitude = ?, checkout_longitude = ?, total_hours = ?, source = 'approved_request' WHERE id = ?");
+                        $uStmt->execute([$req['time_out'], $lat, $lng, $totalHours, $att['id']]);
+                    } else {
+                        $uStmt = $db->prepare("UPDATE attendance SET checkout_time = ?, total_hours = ?, source = 'approved_request' WHERE id = ?");
+                        $uStmt->execute([$req['time_out'], $totalHours, $att['id']]);
+                    }
+                }
+                
+                $appliedData = [
+                    'type' => 'out_of_bounds_checkout',
+                    'time_out' => $req['time_out']
                 ];
             }
 

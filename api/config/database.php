@@ -27,6 +27,7 @@ class Database {
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$this->charset}"
             ];
             $this->connection = new PDO($dsn, $this->username, $this->password, $options);
+            $this->connection->exec("SET time_zone = '+05:30'");
         } catch (PDOException $e) {
             http_response_code(500);
             echo json_encode([

@@ -129,6 +129,40 @@ class AttendanceController {
 
         $lat = $body['latitude'] ?? null;
         $lng = $body['longitude'] ?? null;
+        
+        $type = $today['attendance_type'] ?? 'office';
+        
+        if ($type === 'outdoor') {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'requires_confirmation' => true,
+                'message' => 'You are checking out from an outdoor location. Do you want to proceed?'
+            ]);
+            exit;
+        }
+
+        if ($type === 'office') {
+            if (!$lat || !$lng) {
+                Response::error("Location data is required for office check-outs.", 400);
+            }
+            
+            $companyModel = new Company();
+            $company = $companyModel->findById($auth['company_id']);
+            if ($company['office_latitude'] && $company['office_longitude']) {
+                $distance = Attendance::calculateDistance($lat, $lng, (float)$company['office_latitude'], (float)$company['office_longitude']);
+                if ($distance > $company['office_radius']) {
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false,
+                        'requires_confirmation' => true,
+                        'message' => 'You are checking out outside the office location. Do you want to proceed?'
+                    ]);
+                    exit;
+                }
+            }
+        }
+
         if ($lat && $lng) {
             $attendanceModel->checkoutWithLocation($today['id'], $lat, $lng);
         } else {
@@ -140,6 +174,56 @@ class AttendanceController {
             'checkout_time' => $updated['checkout_time'],
             'total_hours' => $updated['total_hours']
         ], 'Checked out successfully');
+    }
+
+    public static function requestOutdoorCheckout(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        
+        $body = getRequestBody();
+        $attendanceModel = new Attendance();
+        $today = $attendanceModel->findTodayByEmployee($auth['user_id']);
+        if (!$today) Response::error('No check-in found for today', 404);
+        if ($today['checkout_time']) Response::error('Already checked out', 409);
+        
+        $lat = $body['latitude'] ?? null;
+        $lng = $body['longitude'] ?? null;
+        $reason = $body['reason'] ?? null;
+        
+        if ($lat !== null && $lng !== null) {
+            $locationData = json_encode(['latitude' => $lat, 'longitude' => $lng, 'reason' => $reason]);
+        } else {
+            $locationData = json_encode(['reason' => $reason]);
+        }
+
+        $db = Database::getInstance()->getConnection();
+        
+        // Prevent duplicate pending requests for today
+        $dupStmt = $db->prepare("SELECT id FROM attendance_requests WHERE employee_id = ? AND request_type = 'out_of_bounds_checkout' AND start_date = ? AND status = 'pending' AND deleted_at IS NULL");
+        $dupStmt->execute([$auth['user_id'], $today['date']]);
+        if ($dupStmt->fetch()) {
+            Response::error('An out-of-bounds check-out request is already pending for today.', 409);
+        }
+        
+        $timeOut = date('Y-m-d H:i:s');
+        
+        $stmt = $db->prepare("
+            INSERT INTO attendance_requests 
+            (employee_id, company_id, request_type, start_date, original_time_in, time_out, reason) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $auth['user_id'], 
+            $auth['company_id'], 
+            'out_of_bounds_checkout', 
+            $today['date'], 
+            $today['checkin_time'], 
+            $timeOut, 
+            $locationData
+        ]);
+        
+        Response::success(null, 'Out-of-bounds check-out requested successfully and is pending approval.', 201);
     }
 
     public static function today(): void {

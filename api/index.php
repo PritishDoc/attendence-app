@@ -203,6 +203,9 @@ try {
     elseif ($uri === '/attendance/checkout' && $method === 'POST') {
         AttendanceController::checkout();
     }
+    elseif ($uri === '/attendance/checkout-out-of-bounds' && $method === 'POST') {
+        AttendanceController::requestOutdoorCheckout();
+    }
     elseif ($uri === '/attendance/today' && $method === 'GET') {
         AttendanceController::today();
     }
