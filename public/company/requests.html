@@ -102,6 +102,7 @@
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('attendance')">Attendance Requests</button>
                 <button class="tab-btn" onclick="switchTab('leave')">Leave Requests</button>
+                <button class="tab-btn" onclick="switchTab('document')">Document Verification</button>
             </div>
 
             <!-- Attendance Requests Tab -->
@@ -151,6 +152,32 @@
                             </thead>
                             <tbody id="leaveRequestsList">
                                 <tr><td colspan="7" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Requests Tab -->
+            <div id="documentTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Pending Document Verifications</div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Document Type</th>
+                                    <th>File</th>
+                                    <th>Uploaded By</th>
+                                    <th>Date</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="documentRequestsList">
+                                <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
                             </tbody>
                         </table>
                     </div>

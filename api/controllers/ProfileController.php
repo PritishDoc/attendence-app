@@ -36,10 +36,10 @@ class ProfileController {
         $stmt = $db->prepare("
             INSERT INTO employee_addresses (
                 uuid, company_id, employee_id, house_no, landmark, area, 
-                country_id, state_id, city_id, zip_code, address_type, created_by
+                country, state, city, zip_code, address_type, created_by
             ) VALUES (
                 :uuid, :company_id, :employee_id, :house_no, :landmark, :area,
-                :country_id, :state_id, :city_id, :zip_code, :address_type, :created_by
+                :country, :state, :city, :zip_code, :address_type, :created_by
             )
         ");
 
@@ -50,9 +50,9 @@ class ProfileController {
             ':house_no' => $data['house_no'] ?? null,
             ':landmark' => $data['landmark'] ?? null,
             ':area' => $data['area'] ?? null,
-            ':country_id' => $data['country_id'] ?? null,
-            ':state_id' => $data['state_id'] ?? null,
-            ':city_id' => $data['city_id'] ?? null,
+            ':country' => $data['country'] ?? null,
+            ':state' => $data['state'] ?? null,
+            ':city' => $data['city'] ?? null,
             ':zip_code' => $data['zip_code'] ?? null,
             ':address_type' => $data['address_type'],
             ':created_by' => $user['id']
@@ -79,9 +79,9 @@ class ProfileController {
                 house_no = :house_no, 
                 landmark = :landmark, 
                 area = :area, 
-                country_id = :country_id, 
-                state_id = :state_id, 
-                city_id = :city_id, 
+                country = :country, 
+                state = :state, 
+                city = :city, 
                 zip_code = :zip_code, 
                 address_type = :address_type, 
                 updated_by = :updated_by
@@ -92,9 +92,9 @@ class ProfileController {
             ':house_no' => $data['house_no'] ?? null,
             ':landmark' => $data['landmark'] ?? null,
             ':area' => $data['area'] ?? null,
-            ':country_id' => $data['country_id'] ?? null,
-            ':state_id' => $data['state_id'] ?? null,
-            ':city_id' => $data['city_id'] ?? null,
+            ':country' => $data['country'] ?? null,
+            ':state' => $data['state'] ?? null,
+            ':city' => $data['city'] ?? null,
             ':zip_code' => $data['zip_code'] ?? null,
             ':address_type' => $data['address_type'] ?? null,
             ':updated_by' => $user['id'],
@@ -279,5 +279,59 @@ class ProfileController {
         $stmt = $db->prepare("UPDATE employee_family SET deleted_at = CURRENT_TIMESTAMP WHERE uuid = :uuid AND company_id = :company_id");
         $stmt->execute([':uuid' => $uuid, ':company_id' => $user['company_id']]);
         Response::success([], "Family member deleted successfully");
+    }
+
+    // ==========================================
+    // WORK DETAILS (READ ONLY)
+    // ==========================================
+    
+    public static function getWorkDetails() {
+        $user = requireAuth(['employee']);
+        $db = Database::getInstance()->getConnection();
+        
+        $sql = "SELECT 
+                    b.id as branch_id, b.name as branch_name, b.location as branch_location,
+                    d.id as dept_id, d.name as dept_name,
+                    des.id as desig_id, des.name as desig_name,
+                    cs.work_start_time, cs.work_end_time, cs.working_days, cs.timezone
+                FROM users u
+                LEFT JOIN branches b ON u.branch_id = b.id
+                LEFT JOIN departments d ON u.department_id = d.id
+                LEFT JOIN designations des ON u.designation_id = des.id
+                LEFT JOIN company_settings cs ON u.company_id = cs.company_id
+                WHERE u.id = :user_id AND u.deleted_at IS NULL";
+                
+        $stmt = $db->prepare($sql);
+        $stmt->execute([':user_id' => $user['id']]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$result) {
+             Response::error('Work details not found', 404);
+        }
+        
+        // Format the output
+        $data = [
+            'branch' => $result['branch_id'] ? [
+                'id' => $result['branch_id'],
+                'name' => $result['branch_name'],
+                'location' => $result['branch_location']
+            ] : null,
+            'department' => $result['dept_id'] ? [
+                'id' => $result['dept_id'],
+                'name' => $result['dept_name']
+            ] : null,
+            'designation' => $result['desig_id'] ? [
+                'id' => $result['desig_id'],
+                'name' => $result['desig_name']
+            ] : null,
+            'shift' => [
+                'start_time' => $result['work_start_time'],
+                'end_time' => $result['work_end_time'],
+                'working_days' => $result['working_days'] ? json_decode($result['working_days'], true) : null,
+                'timezone' => $result['timezone']
+            ]
+        ];
+        
+        Response::success(['work_details' => $data]);
     }
 }

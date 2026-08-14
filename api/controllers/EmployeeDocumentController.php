@@ -20,14 +20,21 @@ class EmployeeDocumentController {
      * Upload a joining document for an employee
      */
     public static function upload(int $employeeId) {
-        $user = requireAuth(['company', 'super_admin']);
+        $user = requireAuth(['company_admin', 'super_admin', 'employee']);
         $db = Database::getInstance()->getConnection();
 
-        // Validate employee belongs to company
-        $stmt = $db->prepare("SELECT id FROM users WHERE id = :employee_id AND company_id = :company_id");
-        $stmt->execute([':employee_id' => $employeeId, ':company_id' => $user['company_id']]);
-        if (!$stmt->fetch()) {
-            Response::error("Employee not found", 404);
+        // Access control check
+        if ($user['role'] === 'employee') {
+            if ($user['id'] != $employeeId) {
+                Response::error("Access denied. You can only upload your own documents.", 403);
+            }
+        } else {
+            // Validate employee belongs to company
+            $stmt = $db->prepare("SELECT id FROM users WHERE id = :employee_id AND company_id = :company_id");
+            $stmt->execute([':employee_id' => $employeeId, ':company_id' => $user['company_id']]);
+            if (!$stmt->fetch()) {
+                Response::error("Employee not found", 404);
+            }
         }
 
         if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
@@ -65,13 +72,23 @@ class EmployeeDocumentController {
             Response::error("Failed to save file.", 500);
         }
 
+        // Set verification status and verified_by based on role
+        $verificationStatus = 'pending';
+        $verifiedBy = null;
+        if ($user['role'] === 'company' || $user['role'] === 'super_admin') {
+            $verificationStatus = 'verified';
+            $verifiedBy = $user['id'];
+        }
+
         // Insert into database
         $sql = "INSERT INTO files (
             uuid, company_id, employee_id, uploaded_by, entity_type, entity_id, 
-            file_name, file_path, mime_type, file_size, is_sensitive
+            file_name, file_path, mime_type, file_size, is_sensitive,
+            verification_status, verified_by
         ) VALUES (
             :uuid, :company_id, :employee_id, :uploaded_by, :entity_type, :entity_id, 
-            :file_name, :file_path, :mime_type, :file_size, :is_sensitive
+            :file_name, :file_path, :mime_type, :file_size, :is_sensitive,
+            :verification_status, :verified_by
         )";
 
         $stmt = $db->prepare($sql);
@@ -86,13 +103,16 @@ class EmployeeDocumentController {
             ':file_path' => $relativePath,
             ':mime_type' => $mimeType,
             ':file_size' => $file['size'],
-            ':is_sensitive' => 1
+            ':is_sensitive' => 1,
+            ':verification_status' => $verificationStatus,
+            ':verified_by' => $verifiedBy
         ]);
 
         Response::success([
             'uuid' => $uuid,
             'file_name' => $file['name'],
-            'url' => "/api/files/{$uuid}"
+            'url' => "/api/files/{$uuid}",
+            'verification_status' => $verificationStatus
         ], "Document uploaded successfully", 201);
     }
 
@@ -100,7 +120,7 @@ class EmployeeDocumentController {
      * List documents for an employee
      */
     public static function list(int $employeeId) {
-        $user = requireAuth(['company', 'super_admin', 'employee']);
+        $user = requireAuth(['company_admin', 'super_admin', 'employee']);
         $db = Database::getInstance()->getConnection();
 
         // Access control check
@@ -117,9 +137,14 @@ class EmployeeDocumentController {
         $sql = "
             SELECT 
                 f.uuid, f.file_name, f.file_size, f.mime_type, f.created_at, f.entity_id as document_type_id,
-                cdt.name as document_type_name
+                cdt.name as document_type_name,
+                f.verification_status, f.rejected_at,
+                u1.name as uploaded_by_name,
+                u2.name as verified_by_name
             FROM files f
             LEFT JOIN company_document_types cdt ON f.entity_id = cdt.id
+            LEFT JOIN users u1 ON f.uploaded_by = u1.id
+            LEFT JOIN users u2 ON f.verified_by = u2.id
             WHERE f.employee_id = :employee_id 
               AND f.company_id = :company_id 
               AND f.entity_type = 'joining_document'
@@ -135,7 +160,7 @@ class EmployeeDocumentController {
 
         $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Add URL for convenience
+        // Add URL for convenience and format names
         foreach ($documents as &$doc) {
             $doc['url'] = "/api/files/{$doc['uuid']}";
         }
@@ -144,10 +169,90 @@ class EmployeeDocumentController {
     }
 
     /**
+     * List all pending document verifications for the company (Admin only)
+     */
+    public static function pendingVerifications() {
+        $user = requireAuth(['company_admin', 'super_admin']);
+        $db = Database::getInstance()->getConnection();
+        
+        $sql = "
+            SELECT 
+                f.uuid, f.file_name, f.file_size, f.mime_type, f.created_at, f.entity_id as document_type_id,
+                cdt.name as document_type_name,
+                f.verification_status,
+                e.id as employee_id, e.name as employee_name,
+                u1.name as uploaded_by_name
+            FROM files f
+            LEFT JOIN company_document_types cdt ON f.entity_id = cdt.id
+            LEFT JOIN users e ON f.employee_id = e.id
+            LEFT JOIN users u1 ON f.uploaded_by = u1.id
+            WHERE f.company_id = :company_id 
+              AND f.entity_type = 'joining_document'
+              AND f.status = 'active'
+              AND f.verification_status = 'pending'
+            ORDER BY f.created_at ASC
+        ";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([':company_id' => $user['company_id']]);
+        
+        $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($documents as &$doc) {
+            $doc['url'] = "/api/files/{$doc['uuid']}";
+        }
+        
+        Response::success(['pending_documents' => $documents]);
+    }
+
+    /**
+     * Verify or reject a pending document (Admin only)
+     */
+    public static function verifyDocument(string $uuid) {
+        $user = requireAuth(['company_admin', 'super_admin']);
+        $db = Database::getInstance()->getConnection();
+        
+        $data = json_decode(file_get_contents('php://input'), true);
+        $status = $data['status'] ?? null; // 'verified' or 'rejected'
+        
+        if (!in_array($status, ['verified', 'rejected'])) {
+            Response::error("Invalid status. Must be 'verified' or 'rejected'", 400);
+        }
+        
+        $stmt = $db->prepare("SELECT * FROM files WHERE uuid = :uuid AND company_id = :company_id AND entity_type = 'joining_document'");
+        $stmt->execute([':uuid' => $uuid, ':company_id' => $user['company_id']]);
+        $file = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$file) {
+            Response::error("Document not found", 404);
+        }
+        
+        if ($file['verification_status'] !== 'pending') {
+            Response::error("Document is already processed", 400);
+        }
+        
+        $rejectedAt = ($status === 'rejected') ? date('Y-m-d H:i:s') : null;
+
+        $updateStmt = $db->prepare("
+            UPDATE files 
+            SET verification_status = :status, verified_by = :verified_by, rejected_at = :rejected_at
+            WHERE id = :id
+        ");
+        $updateStmt->execute([
+            ':status' => $status,
+            ':verified_by' => $user['id'],
+            ':rejected_at' => $rejectedAt,
+            ':id' => $file['id']
+        ]);
+        
+        Response::success([], "Document $status successfully");
+    }
+
+    /**
      * Delete a document
      */
     public static function delete(string $uuid) {
-        $user = requireAuth(['company', 'super_admin']);
+        $user = requireAuth(['company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("SELECT * FROM files WHERE uuid = :uuid AND company_id = :company_id");

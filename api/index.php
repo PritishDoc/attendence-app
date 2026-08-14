@@ -301,6 +301,17 @@ try {
     }
 
     // ─── Profile Routes ───
+    elseif ($uri === '/profile/documents' && $method === 'GET') {
+        $auth = requireAuth(['employee']);
+        EmployeeDocumentController::list($auth['id']);
+    }
+    elseif ($uri === '/profile/documents' && $method === 'POST') {
+        $auth = requireAuth(['employee']);
+        EmployeeDocumentController::upload($auth['id']);
+    }
+    elseif ($uri === '/profile/work-details' && $method === 'GET') {
+        ProfileController::getWorkDetails();
+    }
     elseif ($uri === '/profile/address' && $method === 'GET') {
         ProfileController::getAddress();
     }
@@ -364,6 +375,12 @@ try {
     }
     elseif (preg_match('#^/admin/employees/documents/([a-f0-9\-]+)$#', $uri, $m) && $method === 'DELETE') {
         EmployeeDocumentController::delete($m[1]);
+    }
+    elseif ($uri === '/admin/documents/pending' && $method === 'GET') {
+        EmployeeDocumentController::pendingVerifications();
+    }
+    elseif (preg_match('#^/admin/documents/([a-f0-9\-]+)/verify$#', $uri, $m) && $method === 'POST') {
+        EmployeeDocumentController::verifyDocument($m[1]);
     }
 
     // ─── File Proxy ───

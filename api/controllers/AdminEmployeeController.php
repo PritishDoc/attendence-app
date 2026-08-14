@@ -11,7 +11,7 @@ class AdminEmployeeController {
      * Update joining details for an employee
      */
     public static function updateJoiningDetails(int $employeeId) {
-        $user = requireAuth(['company', 'super_admin']);
+        $user = requireAuth(['company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
         
         $data = json_decode(file_get_contents('php://input'), true);
@@ -72,7 +72,7 @@ class AdminEmployeeController {
      * Get joining details
      */
     public static function getJoiningDetails(int $employeeId) {
-        $user = requireAuth(['company', 'super_admin']);
+        $user = requireAuth(['company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("

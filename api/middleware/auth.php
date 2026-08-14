@@ -7,17 +7,19 @@
 function authenticate(): array {
     $headers = getallheaders();
     $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    $token = '';
 
-    if (empty($authHeader)) {
+    // Extract Bearer token
+    if (!empty($authHeader) && preg_match('/Bearer\s+(.+)$/i', $authHeader, $matches)) {
+        $token = $matches[1];
+    } elseif (isset($_GET['token'])) {
+        $token = $_GET['token'];
+    }
+
+    if (empty($token)) {
         Response::error('Authentication required', 401);
     }
 
-    // Extract Bearer token
-    if (!preg_match('/Bearer\s+(.+)$/i', $authHeader, $matches)) {
-        Response::error('Invalid authorization format', 401);
-    }
-
-    $token = $matches[1];
     $payload = JWT::verify($token);
 
     if (!$payload || !isset($payload['user_id'])) {
@@ -59,3 +61,19 @@ function requireCompany(array $user, int $companyId): void {
         Response::error('Access denied to this company', 403);
     }
 }
+
+/**
+ * Unified auth helper for newer controllers.
+ * Authenticates the user, checks roles, and returns a user array with 'id'.
+ */
+function requireAuth(array $allowedRoles): array {
+    $payload = authenticate();
+    requireRole($payload, $allowedRoles);
+    
+    return [
+        'id' => $payload['user_id'],
+        'company_id' => $payload['company_id'] ?? null,
+        'role' => $payload['role']
+    ];
+}
+

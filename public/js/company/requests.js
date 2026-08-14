@@ -8,6 +8,7 @@ const utils = {
 document.addEventListener('DOMContentLoaded', () => {
     loadAttendanceRequests();
     loadLeaveRequests();
+    loadDocumentRequests();
 });
 
 async function loadAttendanceRequests() {
@@ -141,5 +142,60 @@ function getStatusColor(status) {
         case 'pending': 
         case 'under_process': return 'yellow';
         default: return 'gray';
+    }
+}
+
+async function loadDocumentRequests() {
+    const listEl = document.getElementById('documentRequestsList');
+    try {
+        const res = await window.api.get('/admin/documents/pending');
+        const requests = res.data.pending_documents || res.data;
+        
+        if (!requests || requests.length === 0) {
+            listEl.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">No pending document verifications</td></tr>';
+            return;
+        }
+
+        listEl.innerHTML = requests.map(req => {
+            return `
+                <tr>
+                    <td>
+                        <div class="font-medium">${utils.escapeHtml(req.employee_name || 'Unknown')}</div>
+                        <div class="text-sm text-muted">ID: ${req.employee_id}</div>
+                    </td>
+                    <td>
+                        <div class="font-medium">${utils.escapeHtml(req.document_type_name || 'Document')}</div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-ghost" onclick="window.open('${req.url}?token=' + (window.Auth ? window.Auth.getToken() : ''), '_blank')">View File</button>
+                    </td>
+                    <td>
+                        <div class="text-sm">${utils.escapeHtml(req.uploaded_by_name || 'Unknown')}</div>
+                    </td>
+                    <td>
+                        <div class="text-sm text-muted">${new Date(req.created_at).toLocaleString()}</div>
+                    </td>
+                    <td class="text-right">
+                        <button class="btn btn-sm btn-primary" onclick="verifyDocument('${req.uuid}', 'verified')">Approve</button>
+                        <button class="btn btn-sm btn-danger" onclick="verifyDocument('${req.uuid}', 'rejected')">Reject</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Failed to load document requests:', error);
+        listEl.innerHTML = '<tr><td colspan="6" class="text-center text-red" style="padding:32px">Failed to load requests</td></tr>';
+    }
+}
+
+async function verifyDocument(uuid, status) {
+    const action = status === 'verified' ? 'approve' : 'reject';
+    if (!confirm(`Are you sure you want to ${action} this document?`)) return;
+    try {
+        await window.api.post('/admin/documents/' + uuid + '/verify', { status });
+        if (typeof showToast === 'function') showToast(`Document ${status} successfully`, 'success');
+        loadDocumentRequests();
+    } catch (e) {
+        if (typeof showToast === 'function') showToast(e.message || `Failed to ${action} document`, 'error');
     }
 }

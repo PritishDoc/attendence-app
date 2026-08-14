@@ -9,7 +9,7 @@ class FileProxyController {
      * Proxies a file request, enforcing access control based on user role and file sensitivity.
      */
     public static function getFile(string $uuid) {
-        $user = requireAuth(['employee', 'company', 'super_admin']);
+        $user = requireAuth(['employee', 'company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
 
         // 1. Fetch file record (Ensuring company isolation)
@@ -27,7 +27,7 @@ class FileProxyController {
         
         $hasAccess = false;
         
-        if ($user['role'] === 'company' || $user['role'] === 'super_admin') {
+        if ($user['role'] === 'company_admin' || $user['role'] === 'super_admin') {
             $hasAccess = true;
         } else if ($user['role'] === 'employee') {
             if ($file['employee_id'] == $user['id']) {

@@ -9,7 +9,7 @@ class TeamController {
      * Get a flat list of colleagues in the same company
      */
     public static function getTeam() {
-        $user = requireAuth(['employee', 'company', 'super_admin']);
+        $user = requireAuth(['employee', 'company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
         
         // Basic team fetch. Depending on requirements, might filter by department_id
@@ -29,7 +29,7 @@ class TeamController {
      * Get the team grouped by organizational path (or flat grouping)
      */
     public static function getStructure() {
-        $user = requireAuth(['employee', 'company', 'super_admin']);
+        $user = requireAuth(['employee', 'company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
 
         // Fetch all employees in the company
