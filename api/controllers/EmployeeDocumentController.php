@@ -44,6 +44,10 @@ class EmployeeDocumentController {
         $file = $_FILES['document'];
         $documentTypeId = isset($_POST['document_type_id']) ? (int)$_POST['document_type_id'] : null;
 
+        if (!$documentTypeId) {
+            Response::error("Document type ID is required.", 400);
+        }
+
         // Validate file type
         $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
         $mimeType = mime_content_type($file['tmp_name']);
@@ -64,8 +68,8 @@ class EmployeeDocumentController {
         }
 
         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $uuid = self::generateUUID();
-        $relativePath = "/storage/private/{$user['company_id']}/{$employeeId}/{$uuid}.{$ext}";
+        $fileUuid = self::generateUUID();
+        $relativePath = "/storage/private/{$user['company_id']}/{$employeeId}/{$fileUuid}.{$ext}";
         $absolutePath = __DIR__ . '/../..' . $relativePath;
 
         if (!move_uploaded_file($file['tmp_name'], $absolutePath)) {
@@ -75,45 +79,78 @@ class EmployeeDocumentController {
         // Set verification status and verified_by based on role
         $verificationStatus = 'pending';
         $verifiedBy = null;
-        if ($user['role'] === 'company' || $user['role'] === 'super_admin') {
+        if ($user['role'] === 'company' || $user['role'] === 'super_admin' || $user['role'] === 'company_admin') {
             $verificationStatus = 'verified';
             $verifiedBy = $user['id'];
         }
 
-        // Insert into database
-        $sql = "INSERT INTO files (
-            uuid, company_id, employee_id, uploaded_by, entity_type, entity_id, 
-            file_name, file_path, mime_type, file_size, is_sensitive,
-            verification_status, verified_by
-        ) VALUES (
-            :uuid, :company_id, :employee_id, :uploaded_by, :entity_type, :entity_id, 
-            :file_name, :file_path, :mime_type, :file_size, :is_sensitive,
-            :verification_status, :verified_by
-        )";
+        $db->beginTransaction();
+        try {
+            // 1. Insert into files table (physical file record)
+            $sqlFile = "INSERT INTO files (
+                uuid, company_id, employee_id, uploaded_by, entity_type, entity_id, 
+                file_name, file_path, mime_type, file_size, is_sensitive
+            ) VALUES (
+                :uuid, :company_id, :employee_id, :uploaded_by, :entity_type, :entity_id, 
+                :file_name, :file_path, :mime_type, :file_size, :is_sensitive
+            )";
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute([
-            ':uuid' => $uuid,
-            ':company_id' => $user['company_id'],
-            ':employee_id' => $employeeId,
-            ':uploaded_by' => $user['id'],
-            ':entity_type' => 'joining_document',
-            ':entity_id' => $documentTypeId,
-            ':file_name' => $file['name'],
-            ':file_path' => $relativePath,
-            ':mime_type' => $mimeType,
-            ':file_size' => $file['size'],
-            ':is_sensitive' => 1,
-            ':verification_status' => $verificationStatus,
-            ':verified_by' => $verifiedBy
-        ]);
+            $stmtFile = $db->prepare($sqlFile);
+            $stmtFile->execute([
+                ':uuid' => $fileUuid,
+                ':company_id' => $user['company_id'],
+                ':employee_id' => $employeeId,
+                ':uploaded_by' => $user['id'],
+                ':entity_type' => 'employee_document', // Generic marker
+                ':entity_id' => null,
+                ':file_name' => $file['name'],
+                ':file_path' => $relativePath,
+                ':mime_type' => $mimeType,
+                ':file_size' => $file['size'],
+                ':is_sensitive' => 1
+            ]);
 
-        Response::success([
-            'uuid' => $uuid,
-            'file_name' => $file['name'],
-            'url' => "/api/files/{$uuid}",
-            'verification_status' => $verificationStatus
-        ], "Document uploaded successfully", 201);
+            // 2. Insert into employee_documents table (logical record)
+            $documentUuid = self::generateUUID();
+            $sqlDoc = "INSERT INTO employee_documents (
+                uuid, company_id, employee_id, document_type_id, document_name, 
+                document_file_uuid, version_number, is_active, verification_status, verified_by, created_by
+            ) VALUES (
+                :uuid, :company_id, :employee_id, :document_type_id, :document_name,
+                :document_file_uuid, 1, 1, :verification_status, :verified_by, :created_by
+            )";
+
+            $stmtDoc = $db->prepare($sqlDoc);
+            $stmtDoc->execute([
+                ':uuid' => $documentUuid,
+                ':company_id' => $user['company_id'],
+                ':employee_id' => $employeeId,
+                ':document_type_id' => $documentTypeId,
+                ':document_name' => $file['name'],
+                ':document_file_uuid' => $fileUuid,
+                ':verification_status' => $verificationStatus,
+                ':verified_by' => $verifiedBy,
+                ':created_by' => $user['id']
+            ]);
+
+            $db->commit();
+
+            Response::success([
+                'uuid' => $documentUuid,
+                'file_uuid' => $fileUuid,
+                'file_name' => $file['name'],
+                'url' => "/api/files/{$fileUuid}",
+                'verification_status' => $verificationStatus
+            ], "Document uploaded successfully", 201);
+            
+        } catch (Exception $e) {
+            $db->rollBack();
+            // Clean up the physical file since DB insertion failed
+            if (file_exists($absolutePath)) {
+                unlink($absolutePath);
+            }
+            Response::error("Database error: " . $e->getMessage(), 500);
+        }
     }
 
     /**
@@ -136,20 +173,23 @@ class EmployeeDocumentController {
 
         $sql = "
             SELECT 
-                f.uuid, f.file_name, f.file_size, f.mime_type, f.created_at, f.entity_id as document_type_id,
+                ed.uuid, ed.document_name as file_name, ed.document_type_id,
                 cdt.name as document_type_name,
-                f.verification_status, f.rejected_at,
+                ed.verification_status, ed.rejected_at,
+                ed.document_file_uuid as file_uuid,
+                f.file_size, f.mime_type, ed.created_at,
                 u1.name as uploaded_by_name,
                 u2.name as verified_by_name
-            FROM files f
-            LEFT JOIN company_document_types cdt ON f.entity_id = cdt.id
-            LEFT JOIN users u1 ON f.uploaded_by = u1.id
-            LEFT JOIN users u2 ON f.verified_by = u2.id
-            WHERE f.employee_id = :employee_id 
-              AND f.company_id = :company_id 
-              AND f.entity_type = 'joining_document'
-              AND f.status = 'active'
-            ORDER BY f.created_at DESC
+            FROM employee_documents ed
+            LEFT JOIN files f ON ed.document_file_uuid = f.uuid
+            LEFT JOIN company_document_types cdt ON ed.document_type_id = cdt.id
+            LEFT JOIN users u1 ON ed.created_by = u1.id
+            LEFT JOIN users u2 ON ed.verified_by = u2.id
+            WHERE ed.employee_id = :employee_id 
+              AND ed.company_id = :company_id 
+              AND ed.is_active = 1
+              AND ed.deleted_at IS NULL
+            ORDER BY ed.created_at DESC
         ";
 
         $stmt = $db->prepare($sql);
@@ -162,10 +202,11 @@ class EmployeeDocumentController {
 
         // Add URL for convenience and format names
         foreach ($documents as &$doc) {
-            $doc['url'] = "/api/files/{$doc['uuid']}";
+            $doc['url'] = "/api/files/{$doc['file_uuid']}";
         }
 
-        Response::success(['documents' => $documents]);
+        // Return raw array to match Android frontend expectations
+        Response::success($documents);
     }
 
     /**
@@ -177,20 +218,23 @@ class EmployeeDocumentController {
         
         $sql = "
             SELECT 
-                f.uuid, f.file_name, f.file_size, f.mime_type, f.created_at, f.entity_id as document_type_id,
+                ed.uuid, ed.document_name as file_name, ed.document_type_id,
                 cdt.name as document_type_name,
-                f.verification_status,
+                ed.verification_status,
+                ed.document_file_uuid as file_uuid,
+                f.file_size, f.mime_type, ed.created_at,
                 e.id as employee_id, e.name as employee_name,
                 u1.name as uploaded_by_name
-            FROM files f
-            LEFT JOIN company_document_types cdt ON f.entity_id = cdt.id
-            LEFT JOIN users e ON f.employee_id = e.id
-            LEFT JOIN users u1 ON f.uploaded_by = u1.id
-            WHERE f.company_id = :company_id 
-              AND f.entity_type = 'joining_document'
-              AND f.status = 'active'
-              AND f.verification_status = 'pending'
-            ORDER BY f.created_at ASC
+            FROM employee_documents ed
+            LEFT JOIN files f ON ed.document_file_uuid = f.uuid
+            LEFT JOIN company_document_types cdt ON ed.document_type_id = cdt.id
+            LEFT JOIN users e ON ed.employee_id = e.id
+            LEFT JOIN users u1 ON ed.created_by = u1.id
+            WHERE ed.company_id = :company_id 
+              AND ed.is_active = 1
+              AND ed.deleted_at IS NULL
+              AND ed.verification_status = 'pending'
+            ORDER BY ed.created_at ASC
         ";
         
         $stmt = $db->prepare($sql);
@@ -199,10 +243,10 @@ class EmployeeDocumentController {
         $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($documents as &$doc) {
-            $doc['url'] = "/api/files/{$doc['uuid']}";
+            $doc['url'] = "/api/files/{$doc['file_uuid']}";
         }
         
-        Response::success(['pending_documents' => $documents]);
+        Response::success($documents);
     }
 
     /**
@@ -219,30 +263,31 @@ class EmployeeDocumentController {
             Response::error("Invalid status. Must be 'verified' or 'rejected'", 400);
         }
         
-        $stmt = $db->prepare("SELECT * FROM files WHERE uuid = :uuid AND company_id = :company_id AND entity_type = 'joining_document'");
+        $stmt = $db->prepare("SELECT * FROM employee_documents WHERE uuid = :uuid AND company_id = :company_id AND is_active = 1");
         $stmt->execute([':uuid' => $uuid, ':company_id' => $user['company_id']]);
-        $file = $stmt->fetch(PDO::FETCH_ASSOC);
+        $doc = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$file) {
+        if (!$doc) {
             Response::error("Document not found", 404);
         }
         
-        if ($file['verification_status'] !== 'pending') {
+        if ($doc['verification_status'] !== 'pending') {
             Response::error("Document is already processed", 400);
         }
         
         $rejectedAt = ($status === 'rejected') ? date('Y-m-d H:i:s') : null;
 
         $updateStmt = $db->prepare("
-            UPDATE files 
-            SET verification_status = :status, verified_by = :verified_by, rejected_at = :rejected_at
+            UPDATE employee_documents 
+            SET verification_status = :status, verified_by = :verified_by, rejected_at = :rejected_at, updated_by = :updated_by
             WHERE id = :id
         ");
         $updateStmt->execute([
             ':status' => $status,
             ':verified_by' => $user['id'],
             ':rejected_at' => $rejectedAt,
-            ':id' => $file['id']
+            ':updated_by' => $user['id'],
+            ':id' => $doc['id']
         ]);
         
         Response::success([], "Document $status successfully");
@@ -255,17 +300,20 @@ class EmployeeDocumentController {
         $user = requireAuth(['company_admin', 'super_admin']);
         $db = Database::getInstance()->getConnection();
 
-        $stmt = $db->prepare("SELECT * FROM files WHERE uuid = :uuid AND company_id = :company_id");
+        $stmt = $db->prepare("SELECT * FROM employee_documents WHERE uuid = :uuid AND company_id = :company_id");
         $stmt->execute([':uuid' => $uuid, ':company_id' => $user['company_id']]);
-        $file = $stmt->fetch(PDO::FETCH_ASSOC);
+        $doc = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$file) {
+        if (!$doc) {
             Response::error("Document not found", 404);
         }
 
         // Soft delete
-        $updateStmt = $db->prepare("UPDATE files SET status = 'deleted', deleted_at = NOW() WHERE id = :id");
-        $updateStmt->execute([':id' => $file['id']]);
+        $updateStmt = $db->prepare("UPDATE employee_documents SET is_active = 0, deleted_at = NOW(), updated_by = :updated_by WHERE id = :id");
+        $updateStmt->execute([
+            ':updated_by' => $user['id'],
+            ':id' => $doc['id']
+        ]);
 
         Response::success([], "Document deleted successfully");
     }
