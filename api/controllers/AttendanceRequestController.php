@@ -252,7 +252,7 @@ class AttendanceRequestController {
         $companyId = $auth['role'] === ROLE_SUPER_ADMIN ? ($_GET['company_id'] ?? null) : $auth['company_id'];
         $db = Database::getInstance()->getConnection();
         
-        $query = "SELECT r.*, u.first_name, u.last_name FROM attendance_requests r JOIN users u ON r.employee_id = u.id WHERE r.deleted_at IS NULL";
+        $query = "SELECT r.*, u.name as employee_name FROM attendance_requests r JOIN users u ON r.employee_id = u.id WHERE r.deleted_at IS NULL";
         $params = [];
         
         if ($companyId) {

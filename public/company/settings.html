@@ -17,6 +17,7 @@
             <div class="nav-section"><div class="nav-section-title">Management</div>
                 <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
                 <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
                 <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
                 <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
                 <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
@@ -63,6 +64,30 @@
                         <div class="form-group"><label class="form-label">Radius (meters)</label><input type="number" id="officeRadius" class="form-control" placeholder="200"></div>
                     </div>
                     <div class="flex gap-sm"><button type="submit" class="btn btn-primary">Update Location</button><button type="button" class="btn btn-secondary" onclick="detectLocation()">📍 Use My Location</button></div>
+                </form>
+            </div>
+
+            <!-- Working Days & Shifts -->
+            <div class="card mb-lg animate-fade-in-up" style="animation-delay:.15s;opacity:0">
+                <div class="card-header"><div class="card-title">Working Days & Shifts</div></div>
+                <form id="shiftsForm">
+                    <div class="form-group">
+                        <label class="form-label">Working Days (Checked = Work, Unchecked = Weekoff)</label>
+                        <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Monday"> Monday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Tuesday"> Tuesday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Wednesday"> Wednesday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Thursday"> Thursday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Friday"> Friday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Saturday"> Saturday</label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" name="workday" value="Sunday"> Sunday</label>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px; margin-top:16px;">
+                        <div class="form-group"><label class="form-label">Work Start Time</label><input type="time" step="1" id="workStart" class="form-control"></div>
+                        <div class="form-group"><label class="form-label">Work End Time</label><input type="time" step="1" id="workEnd" class="form-control"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top:12px;">Save Shifts</button>
                 </form>
             </div>
 
@@ -145,7 +170,39 @@
         } catch(err) { showToast(err.message, 'error'); }
     }
 
+    async function loadCompanySettings() {
+        try {
+            const res = await api.get('/settings');
+            if (res.success && res.data) {
+                const s = res.data;
+                document.getElementById('workStart').value = s.work_start_time || '09:00:00';
+                document.getElementById('workEnd').value = s.work_end_time || '18:00:00';
+                
+                const workingDays = Array.isArray(s.working_days) ? s.working_days : (typeof s.working_days === 'string' ? JSON.parse(s.working_days) : []);
+                const checkboxes = document.querySelectorAll('input[name="workday"]');
+                checkboxes.forEach(cb => {
+                    cb.checked = workingDays.includes(cb.value);
+                });
+            }
+        } catch(err) { console.error('Failed to load settings', err); }
+    }
+
+    document.getElementById('shiftsForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const checkboxes = document.querySelectorAll('input[name="workday"]:checked');
+        const workingDays = Array.from(checkboxes).map(cb => cb.value);
+        try {
+            await api.put('/settings', {
+                working_days: workingDays,
+                work_start_time: document.getElementById('workStart').value,
+                work_end_time: document.getElementById('workEnd').value
+            });
+            showToast('Shift settings updated', 'success');
+        } catch(err) { showToast('Error updating shifts', 'error'); }
+    });
+
     loadSettings();
+    loadCompanySettings();
 </script>
 </body>
 </html>

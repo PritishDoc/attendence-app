@@ -9,19 +9,7 @@ $endDate = '2026-08-31';
 $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?");
 $leaveStmt->execute([$employeeId, $endDate, $startDate]);
 $leaves = $leaveStmt->fetchAll(PDO::FETCH_ASSOC);
-
-print_r($leaves);
-
-$leaveMap = [];
+echo "Fetched Leaves: " . count($leaves) . "\n";
 foreach ($leaves as $leave) {
-    $currDate = max($leave['start_date'], $startDate);
-    $lastDate = min($leave['end_date'], $endDate);
-    $current = new DateTime($currDate);
-    $last = new DateTime($lastDate);
-    while ($current <= $last) {
-        $leaveMap[$current->format('Y-m-d')] = $leave;
-        $current->modify('+1 day');
-    }
+    echo "Leave: " . $leave['start_date'] . " to " . $leave['end_date'] . "\n";
 }
-echo "LEAVE MAP KEYS:\n";
-print_r(array_keys($leaveMap));

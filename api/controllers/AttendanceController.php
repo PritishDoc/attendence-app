@@ -274,7 +274,7 @@ class AttendanceController {
         $db = Database::getInstance()->getConnection();
         
         // 1. Fetch Leaves
-        $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?");
+        $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND deleted_at IS NULL AND start_date <= ? AND end_date >= ?");
         $leaveStmt->execute([$employeeId, $endDate, $startDate]);
         $leaves = $leaveStmt->fetchAll();
         
@@ -370,13 +370,154 @@ class AttendanceController {
         Response::success($history);
     }
 
+    private static function getEmployeeCalendar(int $employeeId, string $startDate, string $endDate): array {
+        $db = Database::getInstance()->getConnection();
+        
+        // 1. Fetch User's Company ID
+        $userStmt = $db->prepare("SELECT company_id FROM users WHERE id = ?");
+        $userStmt->execute([$employeeId]);
+        $companyId = $userStmt->fetchColumn();
+
+        // 2. Fetch Working Days (Weekoffs)
+        $setStmt = $db->prepare("SELECT working_days FROM company_settings WHERE company_id = ?");
+        $setStmt->execute([$companyId]);
+        $workingDaysStr = $setStmt->fetchColumn();
+        $workingDays = $workingDaysStr ? json_decode($workingDaysStr, true) : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        if (!is_array($workingDays)) $workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+        // 3. Fetch Holidays
+        $holStmt = $db->prepare("SELECT * FROM company_holidays WHERE company_id = ? AND holiday_date BETWEEN ? AND ?");
+        $holStmt->execute([$companyId, $startDate, $endDate]);
+        $holidays = $holStmt->fetchAll();
+        $holidayMap = [];
+        foreach ($holidays as $h) {
+            $holidayMap[$h['holiday_date']] = $h;
+        }
+
+        // 4. Fetch Leaves
+        $leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND deleted_at IS NULL AND start_date <= ? AND end_date >= ?");
+        $leaveStmt->execute([$employeeId, $endDate, $startDate]);
+        $leaves = $leaveStmt->fetchAll();
+        $leaveMap = [];
+        foreach ($leaves as $leave) {
+            $currDate = max($leave['start_date'], $startDate);
+            $lastDate = min($leave['end_date'], $endDate);
+            $current = new DateTime($currDate);
+            $last = new DateTime($lastDate);
+            while ($current <= $last) {
+                $leaveMap[$current->format('Y-m-d')] = $leave;
+                $current->modify('+1 day');
+            }
+        }
+        
+        // 5. Fetch Attendance
+        $attStmt = $db->prepare("SELECT * FROM attendance WHERE employee_id = ? AND date BETWEEN ? AND ?");
+        $attStmt->execute([$employeeId, $startDate, $endDate]);
+        $attendances = $attStmt->fetchAll();
+        $attMap = [];
+        foreach ($attendances as $att) {
+            $attMap[$att['date']] = $att;
+        }
+        
+        $history = [];
+        $current = new DateTime($startDate);
+        $last = new DateTime($endDate);
+        
+        // Prevent showing 'Absent' for future dates
+        $todayStr = date('Y-m-d');
+        
+        while ($current <= $last) {
+            $dateStr = $current->format('Y-m-d');
+            $dayOfWeek = $current->format('l');
+            
+            $isHoliday = isset($holidayMap[$dateStr]);
+            $isWeekoff = !in_array($dayOfWeek, $workingDays);
+            
+            $badge = null; // empty for future dates by default
+            $status = null;
+            
+            if ($dateStr <= $todayStr) {
+                $badge = 'A'; // default absent for past/present
+                $status = 'absent';
+            }
+            
+            if ($isHoliday) {
+                $badge = 'H';
+                $status = 'holiday';
+            } elseif ($isWeekoff) {
+                $badge = 'WO';
+                $status = 'weekoff';
+            }
+
+            if (isset($leaveMap[$dateStr])) {
+                $badge = $leaveMap[$dateStr]['leave_type'];
+                $status = 'leave';
+            }
+
+            $attendanceData = null;
+            if (isset($attMap[$dateStr])) {
+                $attStatus = $attMap[$dateStr]['status'];
+                $attendanceData = $attMap[$dateStr];
+                $status = $attStatus; // e.g. 'present', 'late', 'half-day', 'leave', 'absent'
+                
+                if ($isHoliday || $isWeekoff) {
+                    $badge = 'WH';
+                } elseif ($attStatus === 'half-day') {
+                    $badge = 'HD';
+                } elseif ($attStatus === 'leave') {
+                    // Keep the badge from leaveMap (e.g. SL, CL) if set, else fallback to L
+                    if (!isset($leaveMap[$dateStr])) {
+                        $badge = 'L';
+                    }
+                } elseif ($attStatus === 'absent') {
+                    $badge = 'A';
+                } else {
+                    $badge = 'P';
+                }
+            }
+            
+            // Allow future leaves/holidays/weekoffs, but clear 'A' if it's just a normal future working day
+            if ($dateStr > $todayStr && $badge === 'A') {
+                $badge = null;
+                $status = null;
+            }
+            
+            $history[] = [
+                'date' => $dateStr,
+                'calendar_badge' => $badge,
+                'status' => $status,
+                'is_holiday' => $isHoliday,
+                'is_weekoff' => $isWeekoff,
+                'leave_type' => isset($leaveMap[$dateStr]) ? $leaveMap[$dateStr]['leave_type'] : null,
+                'attendance_data' => $attendanceData
+            ];
+            
+            $current->modify('+1 day');
+        }
+        
+        return $history;
+    }
+
+    public static function myCalendar(): void {
+        $auth = authenticate();
+        requireRole($auth, [ROLE_EMPLOYEE]);
+        $year = $_GET['year'] ?? date('Y');
+        $month = $_GET['month'] ?? date('m');
+        
+        $month = sprintf("%02d", $month); $startDate = "$year-$month-01";
+        $endDate = date('Y-m-t', strtotime($startDate));
+        
+        $history = self::getEmployeeCalendar($auth['user_id'], $startDate, $endDate);
+        Response::success($history);
+    }
+
     public static function myMonthlyHistory(): void {
         $auth = authenticate();
         requireRole($auth, [ROLE_EMPLOYEE]);
         $year = $_GET['year'] ?? date('Y');
         $month = $_GET['month'] ?? date('m');
         
-        $startDate = "$year-$month-01";
+        $month = sprintf("%02d", $month); $startDate = "$year-$month-01";
         $endDate = date('Y-m-t', strtotime($startDate));
         
         $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $startDate, $endDate);
@@ -389,7 +530,7 @@ class AttendanceController {
         $year = $_GET['year'] ?? date('Y');
         $month = $_GET['month'] ?? date('m');
         
-        $startDate = "$year-$month-01";
+        $month = sprintf("%02d", $month); $startDate = "$year-$month-01";
         $endDate = date('Y-m-t', strtotime($startDate));
         
         $db = Database::getInstance()->getConnection();
@@ -406,7 +547,7 @@ class AttendanceController {
         $year = $_GET['year'] ?? date('Y');
         $month = $_GET['month'] ?? date('m');
         
-        $startDate = "$year-$month-01";
+        $month = sprintf("%02d", $month); $startDate = "$year-$month-01";
         $endDate = date('Y-m-t', strtotime($startDate));
         
         $history = self::getEmployeeHistoryWithLeaves($auth['user_id'], $startDate, $endDate);

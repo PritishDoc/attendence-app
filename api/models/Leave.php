@@ -131,9 +131,43 @@ class Leave {
     // 3. Balances & Policies
     // ===========================================
     public function getEmployeeBalances(int $employeeId, int $companyId, int $year): array {
+        // Fetch existing balances
         $stmt = $this->db->prepare("SELECT * FROM employee_leave_balances WHERE employee_id = ? AND company_id = ? AND leave_year = ?");
         $stmt->execute([$employeeId, $companyId, $year]);
-        return $stmt->fetchAll();
+        $existing = $stmt->fetchAll();
+
+        // Fetch company policies for the year
+        $stmtPolicy = $this->db->prepare("SELECT * FROM company_leave_policies WHERE company_id = ? AND leave_year = ?");
+        $stmtPolicy->execute([$companyId, $year]);
+        $policies = $stmtPolicy->fetchAll();
+
+        $existingTypes = array_column($existing, 'leave_type');
+        $newRecordsInserted = false;
+
+        foreach ($policies as $policy) {
+            if (!in_array($policy['leave_type'], $existingTypes)) {
+                $stmtInsert = $this->db->prepare("
+                    INSERT INTO employee_leave_balances (employee_id, company_id, leave_type, leave_year, allocated_days, used_days, remaining_days)
+                    VALUES (?, ?, ?, ?, ?, 0, ?)
+                ");
+                $stmtInsert->execute([
+                    $employeeId, 
+                    $companyId, 
+                    $policy['leave_type'], 
+                    $year, 
+                    $policy['allocated_days'],
+                    $policy['allocated_days']
+                ]);
+                $newRecordsInserted = true;
+            }
+        }
+
+        if ($newRecordsInserted) {
+            $stmt->execute([$employeeId, $companyId, $year]);
+            return $stmt->fetchAll();
+        }
+
+        return $existing;
     }
 
     public function getCompanyPolicies(int $companyId, int $year): array {

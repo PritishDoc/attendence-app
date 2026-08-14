@@ -236,6 +236,9 @@ try {
     elseif ($uri === '/attendance/date-info' && $method === 'GET') {
         AttendanceRequestController::getDateInfo();
     }
+    elseif ($uri === '/attendance/calendar' && $method === 'GET') {
+        AttendanceController::myCalendar();
+    }
     
     // ─── Attendance Requests Routes ───
     elseif ($uri === '/attendance-requests/my-requests' && $method === 'GET') {

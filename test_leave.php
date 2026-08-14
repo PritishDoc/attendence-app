@@ -1,17 +1,10 @@
 <?php
-require 'api/config/Database.php';
-
-$db = Database::getInstance()->getConnection();
-$employeeId = 14;
+$leaves = [
+    ['start_date' => '2026-08-25', 'end_date' => '2026-08-25', 'leave_type' => 'SL'],
+    ['start_date' => '2026-08-28', 'end_date' => '2026-08-28', 'leave_type' => 'CL']
+];
 $startDate = '2026-08-01';
 $endDate = '2026-08-31';
-
-$leaveStmt = $db->prepare("SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?");
-$leaveStmt->execute([$employeeId, $endDate, $startDate]);
-$leaves = $leaveStmt->fetchAll(PDO::FETCH_ASSOC);
-
-print_r($leaves);
-
 $leaveMap = [];
 foreach ($leaves as $leave) {
     $currDate = max($leave['start_date'], $startDate);
@@ -23,5 +16,4 @@ foreach ($leaves as $leave) {
         $current->modify('+1 day');
     }
 }
-echo "LEAVE MAP KEYS:\n";
 print_r(array_keys($leaveMap));
