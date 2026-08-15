@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Visits — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .modal { max-width: 600px; width: 90%; }
+        .selfie-container { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 1rem; }
+        .selfie-box { flex: 1; min-width: 200px; text-align: center; background: var(--surface); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+        .selfie-img { width: 100%; height: 200px; object-fit: cover; border-radius: var(--radius-sm); margin-bottom: 0.5rem; background: #eee; }
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Overview</div>
+                <a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
+                <a href="visits.html" class="nav-item active"><span class="nav-icon">📍</span> Visits</a>
+                <a href="tracking.html" class="nav-item"><span class="nav-icon">🗺️</span> Live Tracking</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>
+                <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar">CA</div>
+                <div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div>
+                <button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Employee Visits</div><div class="topbar-subtitle">Manage client and field visits</div></div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-primary" onclick="openModal('addVisitModal')">+ Schedule Visit</button>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <!-- Stats -->
+            <div class="stats-grid" id="visitStats">
+                <div class="card stat-card blue"><div class="flex items-center justify-between"><div><div class="stat-label">Total Visits</div><div class="stat-value" id="statTotal">—</div></div><div class="stat-icon">📍</div></div></div>
+                <div class="card stat-card green"><div class="flex items-center justify-between"><div><div class="stat-label">Completed</div><div class="stat-value" id="statCompleted">—</div></div><div class="stat-icon">✅</div></div></div>
+                <div class="card stat-card yellow"><div class="flex items-center justify-between"><div><div class="stat-label">In Progress</div><div class="stat-value" id="statInProgress">—</div></div><div class="stat-icon">🏃</div></div></div>
+                <div class="card stat-card red"><div class="flex items-center justify-between"><div><div class="stat-label">Pending / Upcoming</div><div class="stat-value" id="statPending">—</div></div><div class="stat-icon">⏳</div></div></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card" style="margin-bottom:24px">
+                <div class="flex items-center gap-md" style="flex-wrap:wrap">
+                    <select id="empFilter" class="form-control form-select" style="width:auto;min-width:200px">
+                        <option value="">All Employees</option>
+                    </select>
+                    <select id="statusFilter" class="form-control form-select" style="width:auto;min-width:150px">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Visits Table -->
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Customer & Address</th>
+                                <th>Date & Time</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="visitsTableBody">
+                            <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Schedule Visit Modal -->
+<div class="modal-backdrop" id="addVisitModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Schedule New Visit</h3>
+            <button class="modal-close" onclick="closeModal('addVisitModal')">&times;</button>
+        </div>
+        <form id="visitForm" onsubmit="handleVisitSubmit(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Assign To Employee <span class="text-danger">*</span></label>
+                    <select class="form-control" name="assignee_id" id="assigneeSelect" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Co-partner / Co-employee</label>
+                    <select class="form-control" name="co_assignee_id" id="coAssigneeSelect"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Customer / Client Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="customer_name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <textarea class="form-control" name="address" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Products</label>
+                    <input type="text" class="form-control" name="product">
+                </div>
+                <div class="grid grid-2" style="gap:1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Visit Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" name="visit_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Visit Time <span class="text-danger">*</span></label>
+                        <input type="time" class="form-control" name="visit_time" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Purpose of Visit</label>
+                    <input type="text" class="form-control" name="visit_purpose">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('addVisitModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitVisit">Schedule Visit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Visit Details & Selfies Modal -->
+<div class="modal-backdrop" id="visitDetailsModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Visit Details</h3>
+            <button class="modal-close" onclick="closeModal('visitDetailsModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="grid grid-2" style="margin-bottom: 1rem;">
+                <div>
+                    <div class="text-muted text-sm">Customer</div>
+                    <div class="font-medium" id="detCustomer"></div>
+                </div>
+                <div>
+                    <div class="text-muted text-sm">Employee</div>
+                    <div class="font-medium" id="detEmployee"></div>
+                </div>
+            </div>
+            <div class="selfie-container">
+                <div class="selfie-box">
+                    <h4 class="text-sm font-medium" style="margin-bottom:8px">Check-In</h4>
+                    <img id="checkinImg" src="" class="selfie-img" alt="Check-In Selfie" onerror="this.onerror=null; this.src='../icon-192.png';">
+                    <div class="text-sm text-muted" id="checkinTime">--:--</div>
+                </div>
+                <div class="selfie-box">
+                    <h4 class="text-sm font-medium" style="margin-bottom:8px">Check-Out</h4>
+                    <img id="checkoutImg" src="" class="selfie-img" alt="Check-Out Selfie" onerror="this.onerror=null; this.src='../icon-192.png';">
+                    <div class="text-sm text-muted" id="checkoutTime">--:--</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('visitDetailsModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/company/visits.js"></script>
+</body>
+</html>

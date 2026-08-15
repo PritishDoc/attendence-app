@@ -51,7 +51,7 @@ require_once __DIR__ . '/controllers/CompanySettingController.php';
 require_once __DIR__ . '/controllers/CompanyLeavePolicyController.php';
 require_once __DIR__ . '/controllers/CompanyDocumentTypeController.php';
 require_once __DIR__ . '/controllers/EmployeeDocumentController.php';
-
+require_once __DIR__ . '/controllers/VisitController.php';
 // Apply CORS
 handleCors();
 
@@ -462,6 +462,26 @@ try {
             'time'    => date('Y-m-d H:i:s'),
             'status'  => 'running'
         ], 'API is running');
+    }
+
+    // ─── Visits Routes ───
+    elseif ($uri === '/visits' && $method === 'POST') {
+        VisitController::createVisit();
+    }
+    elseif ($uri === '/visits' && $method === 'GET') {
+        VisitController::getAllVisits();
+    }
+    elseif (preg_match('/^\/visits\/(\d+)\/checkin$/', $uri, $m) && $method === 'POST') {
+        VisitController::checkIn((int)$m[1]);
+    }
+    elseif (preg_match('/^\/visits\/(\d+)\/checkout$/', $uri, $m) && $method === 'POST') {
+        VisitController::checkOut((int)$m[1]);
+    }
+    elseif ($uri === '/visits/stats' && $method === 'GET') {
+        VisitController::getStats();
+    }
+    elseif ($uri === '/visits/completed' && $method === 'GET') {
+        VisitController::getCompletedVisits();
     }
 
     // ─── 404 ───
