@@ -14,11 +14,12 @@ class TeamController {
         
         // Basic team fetch. Depending on requirements, might filter by department_id
         $stmt = $db->prepare("
-            SELECT id, name, email, role, department_id, manager_id, org_path
-            FROM users 
-            WHERE company_id = :company_id 
-              AND role = 'employee' 
-              AND status = 'active'
+            SELECT u.id, u.name, u.email, u.role, u.department_id, u.manager_id, u.org_path, des.name as designation
+            FROM users u
+            LEFT JOIN designations des ON u.designation_id = des.id
+            WHERE u.company_id = :company_id 
+              AND u.role = 'employee' 
+              AND u.status = 'active'
         ");
         $stmt->execute([':company_id' => $user['company_id']]);
         
@@ -34,12 +35,13 @@ class TeamController {
 
         // Fetch all employees in the company
         $stmt = $db->prepare("
-            SELECT id, name, email, role, department_id, manager_id, org_path
-            FROM users 
-            WHERE company_id = :company_id 
-              AND role = 'employee' 
-              AND status = 'active'
-            ORDER BY org_path ASC
+            SELECT u.id, u.name, u.email, u.role, u.department_id, u.manager_id, u.org_path, des.name as designation
+            FROM users u
+            LEFT JOIN designations des ON u.designation_id = des.id
+            WHERE u.company_id = :company_id 
+              AND u.role = 'employee' 
+              AND u.status = 'active'
+            ORDER BY u.org_path ASC
         ");
         $stmt->execute([':company_id' => $user['company_id']]);
         $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
