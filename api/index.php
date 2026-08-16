@@ -411,6 +411,15 @@ try {
     elseif ($uri === '/my/payslips' && $method === 'GET') {
         PayrollController::myPayslips();
     }
+    elseif ($uri === '/schema_check') {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->query("SHOW TABLES LIKE '%shift%'");
+        $stmt2 = $db->query("SHOW TABLES LIKE '%weekoff%'");
+        Response::success([
+            'shifts' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'weekoffs' => $stmt2->fetchAll(PDO::FETCH_ASSOC)
+        ]);
+    }
 
     // ─── Designation Routes ───
     elseif ($uri === '/designations' && $method === 'GET') {

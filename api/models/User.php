@@ -85,13 +85,19 @@ class User {
     }
 
     public function create(array $data): int {
-        $stmt = $this->db->prepare("INSERT INTO users (company_id, name, email, phone, password_hash, role, department_id, designation_id, manager_id, branch_id, employee_id_code, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO users (
+            company_id, name, email, phone, password_hash, role,
+            department_id, designation_id, manager_id, branch_id,
+            employee_id_code, status, shift_id, weekoff_policy_id, employee_code, joining_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $data['company_id'] ?? null, $data['name'], $data['email'],
             $data['phone'] ?? null, $data['password_hash'], $data['role'],
             $data['department_id'] ?? null, $data['designation_id'] ?? null,
             $data['manager_id'] ?? null, $data['branch_id'] ?? null,
-            $data['employee_id_code'] ?? null, $data['status'] ?? 'active'
+            $data['employee_id_code'] ?? null, $data['status'] ?? 'active',
+            $data['shift_id'] ?? null, $data['weekoff_policy_id'] ?? null,
+            $data['employee_code'] ?? null, $data['joining_date'] ?? null
         ]);
         return (int) $this->db->lastInsertId();
     }
@@ -99,7 +105,7 @@ class User {
     public function update(int $id, array $data): bool {
         $fields = [];
         $params = [];
-        $allowed = ['name', 'email', 'phone', 'department_id', 'designation_id', 'manager_id', 'branch_id', 'employee_id_code', 'status', 'avatar_url', 'device_uuid', 'is_first_login', 'refresh_token_hash', 'previous_refresh_token_hash', 'grace_period_expires_at'];
+        $allowed = ['name', 'email', 'phone', 'department_id', 'designation_id', 'manager_id', 'branch_id', 'employee_id_code', 'status', 'avatar_url', 'device_uuid', 'is_first_login', 'refresh_token_hash', 'previous_refresh_token_hash', 'grace_period_expires_at', 'shift_id', 'weekoff_policy_id', 'employee_code', 'joining_date'];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "$field = ?";

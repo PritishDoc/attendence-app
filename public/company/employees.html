@@ -29,6 +29,7 @@
                 <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span> Expenses</a>
                 <a href="advances.html" class="nav-item"><span class="nav-icon">💳</span> Advances</a>
                 <a href="incentives.html" class="nav-item"><span class="nav-icon">🏆</span> Incentives</a>
+                <a href="payroll.html" class="nav-item"><span class="nav-icon">💵</span> Payroll</a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
@@ -103,6 +104,10 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div class="form-group"><label class="form-label">Branch</label><select id="empBranch" class="form-control form-select"><option value="">Select</option></select></div>
                 <div class="form-group"><label class="form-label">Direct Manager</label><select id="empManager" class="form-control form-select"><option value="">No Manager (Root)</option></select></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group"><label class="form-label">Employee Code</label><input type="text" name="employee_code" id="empCode" class="form-control" placeholder="e.g. EMP-101"></div>
+                <div class="form-group"><label class="form-label">Joining Date</label><input type="date" name="joining_date" id="empJoiningDate" class="form-control"></div>
             </div>
             <div class="form-group" id="passwordGroup"><label class="form-label">Password *</label><input type="password" name="password" id="empPassword" class="form-control" minlength="6"></div>
             <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('addEmployeeModal')">Cancel</button><button type="submit" class="btn btn-primary" id="saveBtn">Add Employee</button></div>
@@ -210,6 +215,13 @@
         if (desigId) data.designation_id = parseInt(desigId);
         if (mgrId) data.manager_id = parseInt(mgrId);
         if (branchId) data.branch_id = parseInt(branchId);
+        
+        const empCode = document.getElementById('empCode').value;
+        const joinDate = document.getElementById('empJoiningDate').value;
+        
+        if (empCode) data.employee_code = empCode;
+        if (joinDate) data.joining_date = joinDate;
+
         const pw = document.getElementById('empPassword').value;
         if (pw) data.password = pw;
 
@@ -240,7 +252,9 @@
                 document.getElementById('empDesignation').value = e.designation_id || '';
                 document.getElementById('empManager').value = e.manager_id || '';
                 document.getElementById('empBranch').value = e.branch_id || '';
-                document.getElementById('empPassword').value = '';
+                document.getElementById('empCode').value = e.employee_code || '';
+                document.getElementById('empJoiningDate').value = e.joining_date || '';
+                document.getElementById('passwordGroup').style.display = 'none';
                 document.getElementById('empPassword').removeAttribute('required');
                 document.getElementById('modalTitle').textContent = 'Edit Employee';
                 document.getElementById('saveBtn').textContent = 'Update';

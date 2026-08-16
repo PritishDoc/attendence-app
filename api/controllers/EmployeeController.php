@@ -64,7 +64,11 @@ class EmployeeController {
             'role' => ROLE_EMPLOYEE, 'department_id' => $body['department_id'] ?? null,
             'designation_id' => $body['designation_id'] ?? null, 'manager_id' => $body['manager_id'] ?? null,
             'branch_id' => $body['branch_id'] ?? null,
-            'employee_id_code' => $empCode
+            'employee_id_code' => $empCode,
+            'shift_id' => $body['shift_id'] ?? null,
+            'weekoff_policy_id' => $body['weekoff_policy_id'] ?? null,
+            'employee_code' => $body['employee_code'] ?? null,
+            'joining_date' => $body['joining_date'] ?? null
         ]);
         Response::success($userModel->findById($id), 'Employee created', 201);
     }

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Management — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .payroll-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .dynamic-list { margin-top: 16px; }
+        .dynamic-item { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+        .dynamic-item input { flex: 1; }
+        .remove-btn { color: #dc2626; cursor: pointer; padding: 4px; font-weight: bold; background: none; border: none; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;}
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
+                <a href="visits.html" class="nav-item"><span class="nav-icon">📍</span> Visits</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Finance</div>
+                <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span> Expenses</a>
+                <a href="advances.html" class="nav-item"><span class="nav-icon">💳</span> Advances</a>
+                <a href="incentives.html" class="nav-item"><span class="nav-icon">🏆</span> Incentives</a>
+                <a href="payroll.html" class="nav-item active"><span class="nav-icon">💵</span> Payroll</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Payroll Management</div><div class="topbar-subtitle">Manage salary structures and generate payslips</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="form-group">
+                    <label>Select Employee to Manage</label>
+                    <select id="employeeSelect" class="input" onchange="loadEmployeeData()">
+                        <option value="">-- Select Employee --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="payrollContent" style="display: none;">
+                <div class="payroll-grid">
+                    <!-- Left: Salary Structure -->
+                    <div class="card">
+                        <div class="section-header">
+                            <h3 class="font-medium">Salary Structure</h3>
+                            <button class="btn btn-primary btn-sm" onclick="saveStructure()">Save Structure</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Base Salary (Monthly)</label>
+                            <input type="number" id="baseSalary" class="input" placeholder="0.00">
+                        </div>
+
+                        <div class="form-group" style="margin-top: 24px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="margin:0;">Allowances</label>
+                                <button class="btn btn-ghost btn-sm" onclick="addDynamicItem('allowancesList')">+ Add Allowance</button>
+                            </div>
+                            <div id="allowancesList" class="dynamic-list"></div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 24px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="margin:0;">Deductions</label>
+                                <button class="btn btn-ghost btn-sm" onclick="addDynamicItem('deductionsList')">+ Add Deduction</button>
+                            </div>
+                            <div id="deductionsList" class="dynamic-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Payslip Generation & History -->
+                    <div>
+                        <div class="card" style="margin-bottom: 24px;">
+                            <div class="section-header">
+                                <h3 class="font-medium">Generate Payslip</h3>
+                            </div>
+                            <div style="display:flex; gap:12px; align-items:flex-end;">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Month</label>
+                                    <select id="payslipMonth" class="input">
+                                        <option value="1">January</option>
+                                        <option value="2">February</option>
+                                        <option value="3">March</option>
+                                        <option value="4">April</option>
+                                        <option value="5">May</option>
+                                        <option value="6">June</option>
+                                        <option value="7">July</option>
+                                        <option value="8">August</option>
+                                        <option value="9">September</option>
+                                        <option value="10">October</option>
+                                        <option value="11">November</option>
+                                        <option value="12">December</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Year</label>
+                                    <input type="number" id="payslipYear" class="input" value="2026">
+                                </div>
+                                <button class="btn btn-primary" onclick="generatePayslip()" style="margin-bottom:4px;">Generate</button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="section-header">
+                                <h3 class="font-medium">Payslip History</h3>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th>Net Salary</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="payslipsTable">
+                                        <tr><td colspan="4" class="text-center text-muted">No payslips found</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Payslip Modal -->
+<div id="payslipModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+    <div class="card" style="width:500px; max-height:90vh; overflow-y:auto; position:relative; margin:auto;">
+        <button onclick="document.getElementById('payslipModal').style.display='none'" style="position:absolute; right:16px; top:16px; background:none; border:none; cursor:pointer; font-size:18px;">✕</button>
+        <h2 style="margin-top:0;">Salary Slip</h2>
+        <div id="payslipContent">Loading...</div>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin', 'manager']);
+    populateSidebarUser();
+    
+    // Set current month automatically
+    document.getElementById('payslipMonth').value = new Date().getMonth() + 1;
+    document.getElementById('payslipYear').value = new Date().getFullYear();
+
+    async function loadEmployees() {
+        try {
+            const res = await api.get('/employees');
+            const select = document.getElementById('employeeSelect');
+            if (res.success && res.data) {
+                res.data.forEach(emp => {
+                    const option = document.createElement('option');
+                    option.value = emp.id;
+                    option.textContent = `${emp.name} (${emp.employee_id_code})`;
+                    select.appendChild(option);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load employees', e);
+        }
+    }
+
+    async function loadEmployeeData() {
+        const empId = document.getElementById('employeeSelect').value;
+        const content = document.getElementById('payrollContent');
+        
+        if (!empId) {
+            content.style.display = 'none';
+            return;
+        }
+        
+        content.style.display = 'block';
+        
+        // Clear previous data
+        document.getElementById('baseSalary').value = '';
+        document.getElementById('allowancesList').innerHTML = '';
+        document.getElementById('deductionsList').innerHTML = '';
+        
+        // Fetch Structure
+        try {
+            const res = await api.get(`/payroll/structure/${empId}`);
+            if (res.success && res.data) {
+                document.getElementById('baseSalary').value = res.data.base_salary || '';
+                
+                if (res.data.allowances) {
+                    res.data.allowances.forEach(a => addDynamicItem('allowancesList', a.name, a.amount));
+                }
+                if (res.data.deductions) {
+                    res.data.deductions.forEach(d => addDynamicItem('deductionsList', d.name, d.amount));
+                }
+            }
+        } catch (e) {
+            console.log('No structure found or error', e);
+        }
+        
+        loadPayslips(empId);
+    }
+    
+    async function loadPayslips(empId) {
+        try {
+            const res = await api.get(`/payroll/payslips/${empId}`);
+            const tbody = document.getElementById('payslipsTable');
+            if (res.success && res.data && res.data.length > 0) {
+                tbody.innerHTML = res.data.map(p => `
+                    <tr>
+                        <td>${p.month}/${p.year}</td>
+                        <td class="font-medium text-primary">₹${parseFloat(p.net_salary).toFixed(2)}</td>
+                        <td><span class="badge" style="background:#d1fae5;color:#059669">${p.status}</span></td>
+                        <td><button class="btn btn-ghost btn-sm" onclick="viewPayslip(${p.id})">View</button></td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No payslips found</td></tr>';
+            }
+        } catch (e) {
+            console.error('Failed to load payslips', e);
+        }
+    }
+
+    async function viewPayslip(id) {
+        document.getElementById('payslipModal').style.display = 'flex';
+        document.getElementById('payslipContent').innerHTML = 'Loading...';
+        
+        try {
+            const res = await api.get(`/payroll/payslip/${id}`);
+            if (res.success && res.data) {
+                const d = res.data;
+                const b = d.breakdown || { allowances: [], deductions: [], incentives: [] };
+                
+                let allowHtml = b.allowances.map(a => `<div style="display:flex;justify-content:space-between;"><span>${a.name}</span><span>₹${parseFloat(a.amount).toFixed(2)}</span></div>`).join('');
+                let dedHtml = b.deductions.map(x => `<div style="display:flex;justify-content:space-between;color:#dc2626;"><span>${x.name}</span><span>-₹${parseFloat(x.amount).toFixed(2)}</span></div>`).join('');
+                let incHtml = b.incentives.map(x => `<div style="display:flex;justify-content:space-between;color:#059669;"><span>Incentive</span><span>+₹${parseFloat(x.amount).toFixed(2)}</span></div>`).join('');
+                
+                document.getElementById('payslipContent').innerHTML = `
+                    <div style="margin-bottom:16px;">
+                        <p><strong>Period:</strong> ${d.month}/${d.year}</p>
+                        <p><strong>Status:</strong> ${d.status}</p>
+                    </div>
+                    
+                    <h4 style="margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;">Earnings</h4>
+                    <div style="display:flex;justify-content:space-between; margin-bottom:8px;">
+                        <strong>Basic Pay</strong><strong>₹${parseFloat(d.basic_pay).toFixed(2)}</strong>
+                    </div>
+                    ${allowHtml}
+                    ${incHtml}
+                    
+                    <h4 style="margin-top:16px; margin-bottom:8px; border-bottom:1px solid #333; padding-bottom:4px;">Deductions</h4>
+                    ${dedHtml || '<div class="text-muted">None</div>'}
+                    
+                    <div style="margin-top:24px; padding-top:16px; border-top:2px solid #555; display:flex; justify-content:space-between; font-size:18px;">
+                        <strong>Net Salary</strong>
+                        <strong class="text-primary">₹${parseFloat(d.net_salary).toFixed(2)}</strong>
+                    </div>
+                `;
+            } else {
+                document.getElementById('payslipContent').innerHTML = '<span class="text-error">Failed to load details</span>';
+            }
+        } catch(e) {
+            document.getElementById('payslipContent').innerHTML = '<span class="text-error">Error loading payslip</span>';
+        }
+    }
+
+    function addDynamicItem(listId, name = '', amount = '') {
+        const list = document.getElementById(listId);
+        const div = document.createElement('div');
+        div.className = 'dynamic-item';
+        div.innerHTML = `
+            <input type="text" class="input item-name" placeholder="Name (e.g. HRA)" value="${name}">
+            <input type="number" class="input item-amount" placeholder="Amount" value="${amount}">
+            <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+        `;
+        list.appendChild(div);
+    }
+
+    async function saveStructure() {
+        const empId = document.getElementById('employeeSelect').value;
+        if (!empId) return alert('Select an employee first');
+        
+        const payload = {
+            base_salary: parseFloat(document.getElementById('baseSalary').value) || 0,
+            payment_frequency: 'monthly',
+            allowances: Array.from(document.getElementById('allowancesList').children).map(el => ({
+                name: el.querySelector('.item-name').value,
+                amount: parseFloat(el.querySelector('.item-amount').value) || 0
+            })).filter(i => i.name && i.amount > 0),
+            deductions: Array.from(document.getElementById('deductionsList').children).map(el => ({
+                name: el.querySelector('.item-name').value,
+                amount: parseFloat(el.querySelector('.item-amount').value) || 0
+            })).filter(i => i.name && i.amount > 0)
+        };
+
+        try {
+            const res = await api.post(`/payroll/structure/${empId}`, payload);
+            if (res.success) {
+                alert('Salary structure saved successfully!');
+            } else {
+                alert(res.message || 'Error saving structure');
+            }
+        } catch (e) {
+            alert('An error occurred while saving.');
+        }
+    }
+
+    async function generatePayslip() {
+        const empId = document.getElementById('employeeSelect').value;
+        if (!empId) return alert('Select an employee first');
+        
+        const payload = {
+            employee_id: empId,
+            month: document.getElementById('payslipMonth').value,
+            year: document.getElementById('payslipYear').value
+        };
+        
+        try {
+            const res = await api.post('/payroll/generate-payslip', payload);
+            if (res.success) {
+                alert('Payslip generated successfully!');
+                loadPayslips(empId); // reload history
+            } else {
+                alert(res.message || 'Error generating payslip');
+            }
+        } catch (e) {
+            alert('An error occurred. Check if salary structure is defined.');
+        }
+    }
+
+    // Initialize
+    loadEmployees();
+</script>
+</body>
+</html>

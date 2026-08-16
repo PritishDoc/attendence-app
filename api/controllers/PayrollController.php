@@ -13,7 +13,9 @@ class PayrollController {
         $stmt->execute([$employeeId]);
         $structure = $stmt->fetch();
         
-        if (!$structure) Response::error('Structure not found', 404);
+        if (!$structure) {
+            Response::success(null, 'No structure found');
+        }
         
         $allowances = $db->prepare("SELECT * FROM salary_allowances WHERE salary_structure_id = ?");
         $allowances->execute([$structure['id']]);
@@ -100,11 +102,18 @@ class PayrollController {
         $totalDeductions = (float) $deductionsStmt->fetchColumn();
         
         $basicPay = (float) $structure['base_salary'];
-        $netSalary = $basicPay + $totalAllowances - $totalDeductions;
         
-        $stmt = $db->prepare("INSERT INTO payslips (employee_id, company_id, month, year, basic_pay, total_allowances, total_deductions, net_salary, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'generated') ON DUPLICATE KEY UPDATE basic_pay=VALUES(basic_pay), total_allowances=VALUES(total_allowances), total_deductions=VALUES(total_deductions), net_salary=VALUES(net_salary)");
+        // Calculate Incentives
+        $payrollMonth = sprintf('%04d-%02d', $year, $month);
+        $incentiveStmt = $db->prepare("SELECT SUM(total_incentive_amount) FROM incentives WHERE user_id = ? AND payroll_processing_month = ?");
+        $incentiveStmt->execute([$employeeId, $payrollMonth]);
+        $totalIncentives = (float) $incentiveStmt->fetchColumn();
+        
+        $netSalary = $basicPay + $totalAllowances + $totalIncentives - $totalDeductions;
+        
+        $stmt = $db->prepare("INSERT INTO payslips (employee_id, company_id, month, year, basic_pay, total_allowances, total_incentives, total_deductions, net_salary, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated') ON DUPLICATE KEY UPDATE basic_pay=VALUES(basic_pay), total_allowances=VALUES(total_allowances), total_incentives=VALUES(total_incentives), total_deductions=VALUES(total_deductions), net_salary=VALUES(net_salary)");
         $stmt->execute([
-            $employeeId, $structure['company_id'], $month, $year, $basicPay, $totalAllowances, $totalDeductions, $netSalary
+            $employeeId, $structure['company_id'], $month, $year, $basicPay, $totalAllowances, $totalIncentives, $totalDeductions, $netSalary
         ]);
         
         Response::success(['net_salary' => $netSalary], 'Payslip generated successfully');
@@ -148,6 +157,8 @@ class PayrollController {
     public static function getSinglePayslip(int $id): void {
         $auth = authenticate();
         $db = Database::getInstance()->getConnection();
+        
+        // Fetch Payslip
         $stmt = $db->prepare("SELECT * FROM payslips WHERE id = ?");
         $stmt->execute([$id]);
         $payslip = $stmt->fetch();
@@ -155,6 +166,39 @@ class PayrollController {
         if (!$payslip) Response::error('Payslip not found', 404);
         if ($auth['role'] === ROLE_EMPLOYEE && $auth['user_id'] != $payslip['employee_id']) Response::error('Access denied', 403);
         if ($auth['role'] === ROLE_COMPANY_ADMIN) requireCompany($auth, $payslip['company_id']);
+        
+        $employeeId = $payslip['employee_id'];
+        $month = $payslip['month'];
+        $year = $payslip['year'];
+        $payrollMonth = sprintf('%04d-%02d', $year, $month);
+        
+        // Fetch Salary Structure Breakdown
+        $breakdown = [
+            'allowances' => [],
+            'deductions' => [],
+            'incentives' => []
+        ];
+        
+        $structStmt = $db->prepare("SELECT id FROM salary_structures WHERE employee_id = ?");
+        $structStmt->execute([$employeeId]);
+        $structureId = $structStmt->fetchColumn();
+        
+        if ($structureId) {
+            $allowStmt = $db->prepare("SELECT name, amount FROM salary_allowances WHERE salary_structure_id = ?");
+            $allowStmt->execute([$structureId]);
+            $breakdown['allowances'] = $allowStmt->fetchAll();
+            
+            $deductStmt = $db->prepare("SELECT name, amount FROM salary_deductions WHERE salary_structure_id = ?");
+            $deductStmt->execute([$structureId]);
+            $breakdown['deductions'] = $deductStmt->fetchAll();
+        }
+        
+        // Fetch Incentives Breakdown
+        $incStmt = $db->prepare("SELECT total_incentive_amount as amount FROM incentives WHERE user_id = ? AND payroll_processing_month = ?");
+        $incStmt->execute([$employeeId, $payrollMonth]);
+        $breakdown['incentives'] = $incStmt->fetchAll();
+        
+        $payslip['breakdown'] = $breakdown;
         
         Response::success($payslip);
     }
