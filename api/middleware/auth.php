@@ -41,6 +41,7 @@ function authenticate(): array {
         Response::error('Session expired or invalidated', 401);
     }
 
+    $payload['id'] = $payload['user_id'];
     return $payload;
 }
 

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incentives — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
+                <a href="visits.html" class="nav-item"><span class="nav-icon">📍</span> Visits</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Finance</div>
+                <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span> Expenses</a>
+                <a href="advances.html" class="nav-item"><span class="nav-icon">💳</span> Advances</a>
+                <a href="incentives.html" class="nav-item active"><span class="nav-icon">🏆</span> Incentives</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Incentives</div><div class="topbar-subtitle">Award and manage employee incentives</div></div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-primary btn-sm" onclick="openAwardModal()">+ Award Incentive</button>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Payroll Month</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incentivesTable">
+                            <tr><td colspan="5" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal: Award Incentive -->
+<div class="modal-backdrop" id="incentiveModal">
+    <div class="modal" style="max-width:500px">
+        <div class="modal-header">
+            <h3 class="modal-title">Award Incentive</h3>
+            <button class="modal-close" onclick="closeModal('incentiveModal')">&times;</button>
+        </div>
+        <form id="incentiveForm">
+            <div class="form-group">
+                <label class="form-label">Employee *</label>
+                <select id="incEmployee" class="form-control" required></select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Incentive Type *</label>
+                <select id="incType" class="form-control" required>
+                    <option value="">Select</option>
+                    <option value="Attendance Incentive">Attendance Incentive</option>
+                    <option value="Overtime (OT) Incentive">Overtime (OT) Incentive</option>
+                    <option value="Holiday / Weekend Shift Incentive">Holiday / Weekend Shift Incentive</option>
+                    <option value="Night Shift Allowance">Night Shift Allowance</option>
+                    <option value="Project Milestone Bonus">Project Milestone Bonus</option>
+                </select>
+            </div>
+
+            <div class="grid grid-2" style="gap:16px;">
+                <div class="form-group">
+                    <label class="form-label">Total Amount *</label>
+                    <input type="number" id="incAmount" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payroll Month (YYYY-MM) *</label>
+                    <input type="month" id="incMonth" class="form-control" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Approval Date *</label>
+                <input type="date" id="incDate" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Target / Criteria Achieved *</label>
+                <textarea id="incDesc" class="form-control" rows="3" required></textarea>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('incentiveModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveIncBtn">Award</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin', 'manager']);
+    populateSidebarUser();
+    
+    let employees = [];
+
+    async function init() {
+        await loadEmployees();
+        await loadIncentives();
+    }
+
+    async function loadEmployees() {
+        try {
+            const res = await api.get('/employees');
+            if(res.success) {
+                employees = res.data;
+                const sel = document.getElementById('incEmployee');
+                sel.innerHTML = '<option value="">Select Employee</option>' + employees.map(e => `<option value="${e.id}">${e.name} (${e.employee_id_code || ''})</option>`).join('');
+            }
+        } catch(e) {}
+    }
+
+    async function loadIncentives() {
+        try {
+            const res = await api.get('/incentives/all');
+            const tbody = document.getElementById('incentivesTable');
+            if (res.success && res.data?.length) {
+                tbody.innerHTML = res.data.map(d => {
+                    return `
+                    <tr>
+                        <td>
+                            <div class="font-medium">${d.name}</div>
+                            <div class="text-xs text-muted">${d.employee_id_code || ''}</div>
+                        </td>
+                        <td>${d.incentive_type}</td>
+                        <td class="font-medium">₹${d.total_incentive_amount}</td>
+                        <td>${d.payroll_processing_month}</td>
+                        <td>
+                            <button class="btn btn-ghost btn-xs" onclick="alert('${d.target_achieved_description}\\n\\nApproved on: ${d.approval_date}')">View Info</button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:32px">No incentives found</td></tr>';
+            }
+        } catch(err) { 
+            showToast('Failed to load incentives', 'error');
+        }
+    }
+
+    function openAwardModal() {
+        document.getElementById('incentiveForm').reset();
+        document.getElementById('incDate').value = new Date().toISOString().split('T')[0];
+        
+        // set current month as default for payroll month
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('incMonth').value = `${now.getFullYear()}-${month}`;
+        
+        openModal('incentiveModal');
+    }
+
+    document.getElementById('incentiveForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const btn = document.getElementById('saveIncBtn');
+        btn.disabled = true;
+
+        try {
+            await api.post('/incentives/add', {
+                user_id: document.getElementById('incEmployee').value,
+                incentive_type: document.getElementById('incType').value,
+                total_incentive_amount: document.getElementById('incAmount').value,
+                payroll_processing_month: document.getElementById('incMonth').value,
+                approval_date: document.getElementById('incDate').value,
+                target_achieved_description: document.getElementById('incDesc').value
+            });
+            showToast('Incentive awarded successfully', 'success');
+            closeModal('incentiveModal');
+            loadIncentives();
+        } catch(err) {
+            showToast(err.message || 'Error saving', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    init();
+</script>
+</body>
+</html>

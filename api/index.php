@@ -52,6 +52,9 @@ require_once __DIR__ . '/controllers/CompanyLeavePolicyController.php';
 require_once __DIR__ . '/controllers/CompanyDocumentTypeController.php';
 require_once __DIR__ . '/controllers/EmployeeDocumentController.php';
 require_once __DIR__ . '/controllers/VisitController.php';
+require_once __DIR__ . '/controllers/ExpenseController.php';
+require_once __DIR__ . '/controllers/AdvanceController.php';
+require_once __DIR__ . '/controllers/IncentiveController.php';
 // Apply CORS
 handleCors();
 
@@ -482,6 +485,57 @@ try {
     }
     elseif ($uri === '/visits/completed' && $method === 'GET') {
         VisitController::getCompletedVisits();
+    }
+
+    // ─── Expense Routes ───
+    elseif ($uri === '/expenses/create' && $method === 'POST') {
+        ExpenseController::create();
+    }
+    elseif ($uri === '/expenses/my-expenses' && $method === 'GET') {
+        ExpenseController::myExpenses();
+    }
+    elseif ($uri === '/expenses/all' && $method === 'GET') {
+        ExpenseController::allExpenses();
+    }
+    elseif ($uri === '/expenses/update-status' && $method === 'POST') {
+        ExpenseController::updateStatus();
+    }
+    elseif (preg_match('/^\/expenses\/view\/(\d+)$/', $uri, $m) && $method === 'GET') {
+        ExpenseController::view((int)$m[1]);
+    }
+
+    // ─── Advance Routes ───
+    elseif ($uri === '/advances/apply' && $method === 'POST') {
+        AdvanceController::apply();
+    }
+    elseif ($uri === '/advances/disburse' && $method === 'POST') {
+        AdvanceController::disburse();
+    }
+    elseif ($uri === '/advances/my-advances' && $method === 'GET') {
+        AdvanceController::myAdvances();
+    }
+    elseif ($uri === '/advances/all' && $method === 'GET') {
+        AdvanceController::allAdvances();
+    }
+    elseif ($uri === '/advances/update-status' && $method === 'POST') {
+        AdvanceController::updateStatus();
+    }
+    elseif (preg_match('/^\/advances\/view\/(\d+)$/', $uri, $m) && $method === 'GET') {
+        AdvanceController::view((int)$m[1]);
+    }
+
+    // ─── Incentive Routes ───
+    elseif ($uri === '/incentives/add' && $method === 'POST') {
+        IncentiveController::add();
+    }
+    elseif ($uri === '/incentives/my-incentives' && $method === 'GET') {
+        IncentiveController::myIncentives();
+    }
+    elseif ($uri === '/incentives/all' && $method === 'GET') {
+        IncentiveController::allIncentives();
+    }
+    elseif (preg_match('/^\/incentives\/view\/(\d+)$/', $uri, $m) && $method === 'GET') {
+        IncentiveController::view((int)$m[1]);
     }
 
     // ─── 404 ───

@@ -6,10 +6,18 @@ for file in files:
     with open(file, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    new_links = r'<a href="settings.html" class="nav-item\1"><span class="nav-icon">⚙️</span> Settings</a>' + "\n" + '                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>' + "\n" + '                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>' + "\n" + '                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>' + "\n" + '                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a>'
+    finance_section = """
+            <div class="nav-section">
+                <div class="nav-section-title">Finance</div>
+                <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span> Expenses</a>
+                <a href="advances.html" class="nav-item"><span class="nav-icon">💳</span> Advances</a>
+                <a href="incentives.html" class="nav-item"><span class="nav-icon">🏆</span> Incentives</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div>"""
                 
-    content = re.sub(r'<a href="settings.html" class="nav-item(\s+active)?"><span class="nav-icon">⚙️</span> Settings</a>', new_links, content)
+    content = re.sub(r'<div class="nav-section">\s*<div class="nav-section-title">System</div>', finance_section, content)
     
     with open(file, 'w', encoding='utf-8') as f:
         f.write(content)
-print('Updated 9 files')
+print(f'Updated {len(files)} files')

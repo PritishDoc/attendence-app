@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advances — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
+                <a href="visits.html" class="nav-item"><span class="nav-icon">📍</span> Visits</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Finance</div>
+                <a href="expenses.html" class="nav-item"><span class="nav-icon">💸</span> Expenses</a>
+                <a href="advances.html" class="nav-item active"><span class="nav-icon">💳</span> Advances</a>
+                <a href="incentives.html" class="nav-item"><span class="nav-icon">🏆</span> Incentives</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Advances</div><div class="topbar-subtitle">Manage employee advances and loans</div></div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-primary btn-sm" onclick="openDisburseModal()">+ Disburse Advance</button>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Type</th>
+                                <th>Requested</th>
+                                <th>Disbursed</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="advancesTable">
+                            <tr><td colspan="6" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal: Approve / Direct Disburse -->
+<div class="modal-backdrop" id="advanceModal">
+    <div class="modal" style="max-width:500px">
+        <div class="modal-header">
+            <h3 class="modal-title" id="advanceModalTitle">Disburse Advance</h3>
+            <button class="modal-close" onclick="closeModal('advanceModal')">&times;</button>
+        </div>
+        <form id="advanceForm">
+            <input type="hidden" id="advanceId">
+            <input type="hidden" id="modalMode"> <!-- 'direct' or 'approve' -->
+
+            <div class="form-group" id="employeeSelectGroup">
+                <label class="form-label">Employee *</label>
+                <select id="advEmployee" class="form-control" required></select>
+            </div>
+
+            <div class="form-group" id="expenseTypeGroup">
+                <label class="form-label">Expense Type *</label>
+                <select id="advExpenseType" class="form-control" required>
+                    <option value="">Select</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Project">Project</option>
+                    <option value="Tour / Visit">Tour / Visit</option>
+                    <option value="Internal Operations">Internal Operations</option>
+                    <option value="Training / Event">Training / Event</option>
+                </select>
+            </div>
+
+            <div class="grid grid-2" style="gap:16px;">
+                <div class="form-group" id="amountRequestedGroup">
+                    <label class="form-label">Amount Requested *</label>
+                    <input type="number" id="advAmountRequested" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount Disbursed *</label>
+                    <input type="number" id="advAmountDisbursed" class="form-control" required>
+                </div>
+            </div>
+            
+            <div class="grid grid-2" style="gap:16px;">
+                <div class="form-group">
+                    <label class="form-label">Disbursal Date *</label>
+                    <input type="date" id="advDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Mode *</label>
+                    <input type="text" id="advPaymentMode" class="form-control" placeholder="e.g. Bank Transfer, Cash" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Transaction / Ref ID</label>
+                <input type="text" id="advRefId" class="form-control">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('advanceModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveAdvBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin', 'manager']);
+    populateSidebarUser();
+    
+    let employees = [];
+
+    async function init() {
+        await loadEmployees();
+        await loadAdvances();
+    }
+
+    async function loadEmployees() {
+        try {
+            const res = await api.get('/employees');
+            if(res.success) {
+                employees = res.data;
+                const sel = document.getElementById('advEmployee');
+                sel.innerHTML = '<option value="">Select Employee</option>' + employees.map(e => `<option value="${e.id}">${e.name} (${e.employee_id_code || ''})</option>`).join('');
+            }
+        } catch(e) {}
+    }
+
+    async function loadAdvances() {
+        try {
+            const res = await api.get('/advances/all');
+            const tbody = document.getElementById('advancesTable');
+            if (res.success && res.data?.length) {
+                tbody.innerHTML = res.data.map(d => {
+                    let statusBadge = `<span class="badge" style="background:#fef3c7;color:#d97706">Pending</span>`;
+                    if (d.status === 'Disbursed') statusBadge = `<span class="badge" style="background:#d1fae5;color:#059669">Disbursed</span>`;
+                    if (d.status === 'Rejected') statusBadge = `<span class="badge" style="background:#fee2e2;color:#dc2626">Rejected</span>`;
+                    
+                    return `
+                    <tr>
+                        <td>
+                            <div class="font-medium">${d.name}</div>
+                            <div class="text-xs text-muted">${d.employee_id_code || ''}</div>
+                        </td>
+                        <td>${d.expense_type}</td>
+                        <td class="font-medium text-muted">₹${d.amount_requested}</td>
+                        <td class="font-medium">₹${d.amount_disbursed || '0.00'}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${d.status === 'Pending' ? `
+                                <div class="flex gap-xs">
+                                    <button class="btn btn-primary btn-xs" onclick="openApproveModal(${d.id})">Approve</button>
+                                    <button class="btn btn-secondary btn-xs" onclick="rejectAdvance(${d.id})">Reject</button>
+                                </div>
+                            ` : `
+                                <button class="btn btn-ghost btn-xs" onclick="alert('Ref: ${d.reference_transaction_id || 'N/A'}\\nMode: ${d.payment_mode || 'N/A'}\\nDate: ${d.advance_disbursal_date || 'N/A'}')">View Details</button>
+                            `}
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:32px">No advances found</td></tr>';
+            }
+        } catch(err) { 
+            showToast('Failed to load advances', 'error');
+        }
+    }
+
+    function openDisburseModal() {
+        document.getElementById('advanceForm').reset();
+        document.getElementById('advanceId').value = '';
+        document.getElementById('modalMode').value = 'direct';
+        document.getElementById('advanceModalTitle').textContent = 'Direct Disburse Advance';
+        
+        document.getElementById('employeeSelectGroup').style.display = 'block';
+        document.getElementById('advEmployee').required = true;
+        
+        document.getElementById('expenseTypeGroup').style.display = 'block';
+        document.getElementById('advExpenseType').required = true;
+
+        document.getElementById('amountRequestedGroup').style.display = 'block';
+        document.getElementById('advAmountRequested').required = true;
+
+        document.getElementById('advAmountDisbursed').value = '';
+
+        openModal('advanceModal');
+    }
+
+    function openApproveModal(id) {
+        document.getElementById('advanceForm').reset();
+        document.getElementById('advanceId').value = id;
+        document.getElementById('modalMode').value = 'approve';
+        document.getElementById('advanceModalTitle').textContent = 'Approve Advance Request';
+        
+        // Hide unneeded fields
+        document.getElementById('employeeSelectGroup').style.display = 'none';
+        document.getElementById('advEmployee').required = false;
+        
+        document.getElementById('expenseTypeGroup').style.display = 'none';
+        document.getElementById('advExpenseType').required = false;
+
+        document.getElementById('amountRequestedGroup').style.display = 'none';
+        document.getElementById('advAmountRequested').required = false;
+
+        document.getElementById('advAmountDisbursed').value = '';
+
+        openModal('advanceModal');
+    }
+
+    async function rejectAdvance(id) {
+        if (!confirmAction("Reject this advance request?")) return;
+        try {
+            await api.post('/advances/update-status', { advance_id: id, status: 'Rejected' });
+            showToast('Request rejected', 'success');
+            loadAdvances();
+        } catch(err) {
+            showToast(err.message || 'Error', 'error');
+        }
+    }
+
+    document.getElementById('advanceForm').addEventListener('submit', async(e) => {
+        e.preventDefault();
+        const mode = document.getElementById('modalMode').value;
+        const btn = document.getElementById('saveAdvBtn');
+        btn.disabled = true;
+
+        try {
+            if (mode === 'direct') {
+                await api.post('/advances/disburse', {
+                    user_id: document.getElementById('advEmployee').value,
+                    expense_type: document.getElementById('advExpenseType').value,
+                    amount_requested: document.getElementById('advAmountRequested').value,
+                    amount_disbursed: document.getElementById('advAmountDisbursed').value,
+                    advance_disbursal_date: document.getElementById('advDate').value,
+                    payment_mode: document.getElementById('advPaymentMode').value,
+                    reference_transaction_id: document.getElementById('advRefId').value
+                });
+                showToast('Advance disbursed', 'success');
+            } else {
+                await api.post('/advances/update-status', {
+                    advance_id: document.getElementById('advanceId').value,
+                    status: 'Disbursed',
+                    amount_disbursed: document.getElementById('advAmountDisbursed').value,
+                    advance_disbursal_date: document.getElementById('advDate').value,
+                    payment_mode: document.getElementById('advPaymentMode').value,
+                    reference_transaction_id: document.getElementById('advRefId').value
+                });
+                showToast('Advance approved', 'success');
+            }
+            closeModal('advanceModal');
+            loadAdvances();
+        } catch(err) {
+            showToast(err.message || 'Error saving', 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    init();
+</script>
+</body>
+</html>

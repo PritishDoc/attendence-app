@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expenses — Attendify</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="dashboard">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><div class="sidebar-logo">⏱ <span>Attendify</span></div></div>
+        <nav class="sidebar-nav">
+            <div class="nav-section"><div class="nav-section-title">Overview</div><a href="index.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a></div>
+            <div class="nav-section"><div class="nav-section-title">Management</div>
+                <a href="employees.html" class="nav-item"><span class="nav-icon">👥</span> Employees</a>
+                <a href="attendance.html" class="nav-item"><span class="nav-icon">📋</span> Attendance</a>
+                <a href="requests.html" class="nav-item"><span class="nav-icon">📩</span> Requests</a>
+                <a href="visits.html" class="nav-item"><span class="nav-icon">📍</span> Visits</a>
+                <a href="departments.html" class="nav-item"><span class="nav-icon">🏗️</span> Departments</a>
+                <a href="designations.html" class="nav-item"><span class="nav-icon">👔</span> Designations</a>
+                <a href="reports.html" class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Finance</div>
+                <a href="expenses.html" class="nav-item active"><span class="nav-icon">💸</span> Expenses</a>
+                <a href="advances.html" class="nav-item"><span class="nav-icon">💳</span> Advances</a>
+                <a href="incentives.html" class="nav-item"><span class="nav-icon">🏆</span> Incentives</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">System</div><a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+                <a href="branches.html" class="nav-item"><span class="nav-icon">🏢</span> Branches</a>
+                <a href="holidays.html" class="nav-item"><span class="nav-icon">🎉</span> Holidays</a>
+                <a href="leave-policies.html" class="nav-item"><span class="nav-icon">📄</span> Leave Policies</a>
+                <a href="document-types.html" class="nav-item"><span class="nav-icon">📁</span> Document Types</a></div>
+        </nav>
+        <div class="sidebar-footer"><div class="sidebar-user"><div class="avatar">CA</div><div class="sidebar-user-info"><div class="sidebar-user-name">Admin</div><div class="sidebar-user-role">Company Admin</div></div><button class="btn btn-ghost btn-icon" onclick="Auth.logout()">🚪</button></div></div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div><div class="topbar-title">Expenses</div><div class="topbar-subtitle">Review and manage employee expenses</div></div>
+            </div>
+        </div>
+
+        <div class="page-content">
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Date</th>
+                                <th>Type & Category</th>
+                                <th>Amount</th>
+                                <th>Attachment</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTable">
+                            <tr><td colspan="7" class="text-center text-muted" style="padding:32px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+    Auth.requireRole(['company_admin', 'manager']);
+    populateSidebarUser();
+
+    async function loadExpenses() {
+        try {
+            const res = await api.get('/expenses/all');
+            const tbody = document.getElementById('expensesTable');
+            if (res.success && res.data?.length) {
+                tbody.innerHTML = res.data.map(d => {
+                    let statusBadge = `<span class="badge" style="background:#fef3c7;color:#d97706">Pending</span>`;
+                    if (d.status === 'Approved') statusBadge = `<span class="badge" style="background:#d1fae5;color:#059669">Approved</span>`;
+                    if (d.status === 'Rejected') statusBadge = `<span class="badge" style="background:#fee2e2;color:#dc2626">Rejected</span>`;
+                    
+                    let attachHtml = d.attachment ? `<a href="${api.API_BASE || ''}${d.attachment}" target="_blank" class="btn btn-ghost btn-xs">View File</a>` : '-';
+
+                    return `
+                    <tr>
+                        <td>
+                            <div class="font-medium">${d.name}</div>
+                            <div class="text-xs text-muted">${d.employee_id_code || ''}</div>
+                        </td>
+                        <td>${d.expense_date}</td>
+                        <td>
+                            <div class="font-medium">${d.expense_type}</div>
+                            <div class="text-xs text-muted">${d.expense_category} - ${d.expense_head}</div>
+                        </td>
+                        <td class="font-medium">₹${d.amount}</td>
+                        <td>${attachHtml}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${d.status === 'Pending' ? `
+                                <div class="flex gap-xs">
+                                    <button class="btn btn-primary btn-xs" onclick="updateStatus(${d.id}, 'Approved')">Approve</button>
+                                    <button class="btn btn-secondary btn-xs" onclick="updateStatus(${d.id}, 'Rejected')">Reject</button>
+                                </div>
+                            ` : '-'}
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:32px">No expenses found</td></tr>';
+            }
+        } catch(err) { 
+            console.error(err); 
+            showToast('Failed to load expenses', 'error');
+        }
+    }
+
+    async function updateStatus(id, status) {
+        if (!confirmAction(`${status} this expense?`)) return;
+        try {
+            await api.post('/expenses/update-status', { expense_id: id, status: status });
+            showToast(`Expense ${status.toLowerCase()}`, 'success');
+            loadExpenses();
+        } catch(err) {
+            showToast(err.message || 'Error updating status', 'error');
+        }
+    }
+
+    loadExpenses();
+</script>
+</body>
+</html>
