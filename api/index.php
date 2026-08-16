@@ -55,6 +55,8 @@ require_once __DIR__ . '/controllers/VisitController.php';
 require_once __DIR__ . '/controllers/ExpenseController.php';
 require_once __DIR__ . '/controllers/AdvanceController.php';
 require_once __DIR__ . '/controllers/IncentiveController.php';
+require_once __DIR__ . '/controllers/KycController.php';
+
 // Apply CORS
 handleCors();
 
@@ -411,14 +413,23 @@ try {
     elseif ($uri === '/my/payslips' && $method === 'GET') {
         PayrollController::myPayslips();
     }
+    
+    // ─── KYC Routes ───
+    elseif ($uri === '/my/kyc' && $method === 'GET') {
+        KycController::viewKyc();
+    }
+    elseif ($uri === '/my/kyc' && $method === 'POST') {
+        KycController::submitKyc();
+    }
+    elseif ($uri === '/my/kyc' && $method === 'DELETE') {
+        KycController::deleteKyc();
+    }
+    
     elseif ($uri === '/schema_check') {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->query("SHOW TABLES LIKE '%shift%'");
-        $stmt2 = $db->query("SHOW TABLES LIKE '%weekoff%'");
-        Response::success([
-            'shifts' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'weekoffs' => $stmt2->fetchAll(PDO::FETCH_ASSOC)
-        ]);
+        $stmt = $db->query("DESCRIBE users");
+        $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        Response::success($res);
     }
 
     // ─── Designation Routes ───
